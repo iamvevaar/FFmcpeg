@@ -22,7 +22,10 @@ const ffmpegPath = (() => {
     // fall through
   }
   // Fallback to bundled ffmpeg-static
-  const staticPath = require('ffmpeg-static');
+  let staticPath = require('ffmpeg-static');
+  if (staticPath.includes('app.asar')) {
+    staticPath = staticPath.replace('app.asar', 'app.asar.unpacked');
+  }
   console.log('Using bundled ffmpeg:', staticPath);
   return staticPath;
 })();
@@ -33,7 +36,11 @@ const ffprobePath = (() => {
     const systemPath = execSync('which ffprobe', { encoding: 'utf8' }).trim();
     if (systemPath && fs.existsSync(systemPath)) return systemPath;
   } catch (e) {}
-  return require('ffprobe-static').path;
+  let staticPath = require('ffprobe-static').path;
+  if (staticPath.includes('app.asar')) {
+    staticPath = staticPath.replace('app.asar', 'app.asar.unpacked');
+  }
+  return staticPath;
 })();
 
 // Store
