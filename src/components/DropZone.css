@@ -1,0 +1,106 @@
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: 16px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: var(--color-surface);
+  text-align: center;
+  min-height: 160px;
+}
+
+.dropzone:hover,
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: rgba(139, 92, 246, 0.06);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+
+.dz-icon {
+  color: var(--accent-2);
+  opacity: 0.7;
+  transition: transform var(--transition);
+}
+.dropzone:hover .dz-icon {
+  transform: translateY(-4px);
+}
+
+.dz-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dz-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Filled state */
+.dropzone-filled {
+  flex-direction: row;
+  gap: 14px;
+  cursor: default;
+  padding: 16px 20px;
+  min-height: auto;
+  border-style: solid;
+  border-color: var(--color-border-active);
+  background: rgba(139, 92, 246, 0.06);
+}
+
+.dropzone-filled:hover {
+  box-shadow: none;
+}
+
+.dz-file-icon {
+  position: relative;
+  color: var(--accent-2);
+  flex-shrink: 0;
+}
+
+.dz-ext {
+  position: absolute;
+  bottom: -6px;
+  right: -8px;
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--accent);
+  color: white;
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.dz-file-info {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+}
+
+.dz-file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dz-file-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.dz-clear {
+  padding: 6px;
+  flex-shrink: 0;
+}
