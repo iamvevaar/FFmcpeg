@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
@@ -37,9 +37,16 @@ export default function Manual() {
     const [thumbTs, setThumbTs] = useState('00:00:05');
 
     const { addJob, updateJob } = useJobStore();
+    const dropzoneRef = useRef();
+    const [fileError, setFileError] = useState(false);
 
     const handleRun = async () => {
-        if (!file) return;
+        if (!file) {
+            setFileError(true);
+            dropzoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => setFileError(false), 600);
+            return;
+        }
         setRunning(true);
 
         const opLabels = {
@@ -94,8 +101,10 @@ export default function Manual() {
                             <label className="label">Input File</label>
                             <DropZone
                                 file={file}
-                                onFile={(path) => setFile(path)}
+                                onFile={(path) => { setFile(path); setFileError(false); }}
                                 onClear={() => setFile(null)}
+                                error={fileError}
+                                dropzoneRef={dropzoneRef}
                             />
                         </section>
 
@@ -233,7 +242,7 @@ export default function Manual() {
                         <button
                             className="btn btn-primary run-btn"
                             onClick={handleRun}
-                            disabled={!file || running}
+                            disabled={running}
                         >
                             {running ? (
                                 <><span className="spinner" style={{ display: 'inline-block', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white' }} /> Processing...</>

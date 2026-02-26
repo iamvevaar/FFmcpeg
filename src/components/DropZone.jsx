@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Upload, FileVideo, X } from 'lucide-react';
 import './DropZone.css';
 
-export default function DropZone({ file, onFile, onClear }) {
+export default function DropZone({ file, onFile, onClear, error, dropzoneRef }) {
     const [dragging, setDragging] = useState(false);
     const inputRef = useRef();
 
@@ -50,7 +50,8 @@ export default function DropZone({ file, onFile, onClear }) {
 
     return (
         <div
-            className={`dropzone${dragging ? ' dragging' : ''}`}
+            ref={dropzoneRef}
+            className={`dropzone${dragging ? ' dragging' : ''}${error ? ' dropzone-error' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}

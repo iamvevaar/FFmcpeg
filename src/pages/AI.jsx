@@ -84,6 +84,8 @@ export default function AI() {
     const [loading, setLoading] = useState(false);
     const [hasApiKey, setHasApiKey] = useState(true);
     const bottomRef = useRef();
+    const dropzoneRef = useRef();
+    const [fileError, setFileError] = useState(false);
     const { addJob, updateJob } = useJobStore();
 
     // Check if API key is configured
@@ -114,6 +116,15 @@ export default function AI() {
     const handleSend = async () => {
         const text = prompt.trim();
         if (!text || loading) return;
+
+        // Guard: file must be selected first
+        if (!file) {
+            setFileError(true);
+            dropzoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Auto-clear shake after animation completes so it re-triggers next time
+            setTimeout(() => setFileError(false), 600);
+            return;
+        }
 
         setPrompt('');
         addMessage({ role: 'user', text });
@@ -184,7 +195,13 @@ export default function AI() {
 
                 <div className="ai-file-section animate-fade">
                     <label className="label">File to process</label>
-                    <DropZone file={file} onFile={setFile} onClear={() => setFile(null)} />
+                    <DropZone
+                        file={file}
+                        onFile={(path) => { setFile(path); setFileError(false); }}
+                        onClear={() => setFile(null)}
+                        error={fileError}
+                        dropzoneRef={dropzoneRef}
+                    />
                 </div>
 
                 <div className="chat-area">
