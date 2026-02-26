@@ -26,11 +26,7 @@ export default function JobQueue() {
             <div className="jq-header">
                 <span className="jq-title">Job Queue</span>
                 <div className="jq-header-actions">
-                    {hasCompleted && (
-                        <button className="btn btn-ghost jq-clear" onClick={clearCompleted}>
-                            Clear done
-                        </button>
-                    )}
+
                     <button className="btn btn-ghost jq-close" onClick={toggleQueue} title="Close">
                         ✕
                     </button>

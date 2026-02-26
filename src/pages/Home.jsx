@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { useMemo, useState } from 'react';
-import { Sliders, Wand2, Zap, ChevronRight } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { Sliders, Wand2, Zap, ChevronRight, KeyRound } from 'lucide-react';
 import './Home.css';
 
 const modes = [
@@ -29,10 +29,17 @@ const modes = [
 export default function Home() {
     const navigate = useNavigate();
     const [activeMode, setActiveMode] = useState('manual');
+    const [hasApiKey, setHasApiKey] = useState(true);
     const selectedMode = useMemo(
         () => modes.find(mode => mode.key === activeMode) || modes[0],
         [activeMode]
     );
+
+    useEffect(() => {
+        window.ffmcp?.store.getAll().then(s => {
+            setHasApiKey(Boolean(s?.apiKey?.trim()));
+        });
+    }, []);
 
     return (
         <div className="home-page">
@@ -93,6 +100,23 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+
+            {/* API key banner — shown only when AI tab is active */}
+            {activeMode === 'ai' && !hasApiKey && (
+                <div className="api-key-banner animate-fade" style={{ width: '100%', maxWidth: 760 }}>
+                    <KeyRound size={16} className="api-key-banner-icon" />
+                    <p className="api-key-banner-text">
+                        <strong>No API key configured.</strong>{' '}
+                        Add your Gemini API key to use AI Mode.
+                    </p>
+                    <button
+                        className="api-key-banner-btn"
+                        onClick={() => navigate('/settings')}
+                    >
+                        Open Settings →
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

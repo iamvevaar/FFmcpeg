@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Wand2, Play, FolderOpen, FileVideo, Bot, User, Loader, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Send, Wand2, Play, FolderOpen, FileVideo, Bot, User, Loader, AlertCircle, ArrowLeft, KeyRound } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import useJobStore from '../stores/useJobStore.js';
 import './AI.css';
@@ -82,9 +82,20 @@ export default function AI() {
     const [prompt, setPrompt] = useState('');
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [hasApiKey, setHasApiKey] = useState(true);
     const bottomRef = useRef();
     const { addJob, updateJob } = useJobStore();
 
+    // Check if API key is configured
+    useEffect(() => {
+        window.ffmcp?.store.getAll().then(s => {
+            setHasApiKey(Boolean(s?.apiKey?.trim()));
+        });
+    }, []);
+
+    const showBanner = !hasApiKey;
+
+    // Scroll chat to bottom on new messages
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -196,6 +207,23 @@ export default function AI() {
                     ))}
                     <div ref={bottomRef} />
                 </div>
+
+                {/* API key missing banner */}
+                {showBanner && (
+                    <div className="api-key-banner animate-fade">
+                        <KeyRound size={16} className="api-key-banner-icon" />
+                        <p className="api-key-banner-text">
+                            <strong>No API key configured.</strong>{' '}
+                            Add your Gemini API key to use AI Mode.
+                        </p>
+                        <button
+                            className="api-key-banner-btn"
+                            onClick={() => navigate('/settings')}
+                        >
+                            Open Settings →
+                        </button>
+                    </div>
+                )}
 
                 <div className="chat-input-bar animate-fade">
                     <input
