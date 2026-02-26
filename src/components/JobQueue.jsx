@@ -10,6 +10,16 @@ function statusIcon(status) {
     return <Clock size={14} style={{ color: 'var(--text-muted)' }} />;
 }
 
+const OP_NAMES = {
+    convert: 'Conversion',
+    compress: 'Compression',
+    extractAudio: 'Audio Extraction',
+    trim: 'Trimming',
+    resize: 'Resizing',
+    thumbnail: 'Thumbnail',
+};
+
+
 export default function JobQueue() {
     const { jobs, isOpen, toggleQueue, openQueue, removeJob, clearCompleted } = useJobStore();
 
@@ -45,11 +55,11 @@ export default function JobQueue() {
                             <div className="jq-item-top">
                                 <div className="jq-item-label">
                                     {statusIcon(job.status)}
-                                    <span className="jq-name">{job.label}</span>
+                                    <span className="jq-name">{OP_NAMES[job.operation] ?? job.operation}</span>
                                 </div>
-                                <button className="btn btn-ghost jq-remove" onClick={() => removeJob(job.id)}>
+                                {/* <button className="btn btn-ghost jq-remove" onClick={() => removeJob(job.id)}>
                                     <Trash2 size={12} />
-                                </button>
+                                </button> */}
                             </div>
 
                             {job.status === 'running' && (
@@ -66,16 +76,19 @@ export default function JobQueue() {
                             )}
 
                             {job.status === 'done' && job.outputPath && (
-                                <button
-                                    className="jq-open-btn"
-                                    onClick={() => window.ffmcp?.showInFolder(job.outputPath)}
-                                >
-                                    <FolderOpen size={12} />
-                                    Show in Finder
-                                </button>
+                                <div className='jq-item-bottom'>
+                                    <p className="jq-file">{job.filePath?.split('/').pop()}</p>
+                                    <button
+                                        className="jq-open-btn"
+                                        onClick={() => window.ffmcp?.showInFolder(job.outputPath)}
+                                    >
+                                        <FolderOpen size={12} />
+                                    </button>
+                                </div>
                             )}
 
-                            <p className="jq-file">{job.filePath?.split('/').pop()}</p>
+
+
                         </div>
                     ))
                 )}
