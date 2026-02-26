@@ -4,7 +4,8 @@
   padding: 24px 32px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  align-items: center;  /* centres page-container horizontally */
+  gap: 0;
 }
 
 .ai-file-section {

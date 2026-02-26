@@ -71,6 +71,19 @@ body {
   flex-direction: column;
 }
 
+/* Shared centred content wrapper — used by Manual, AI, Settings pages */
+.page-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;         /* stretch to fill available page height */
+  min-height: 0;   /* allow flex children (chat-area) to scroll */
+}
+
+
 .app-topbar {
   position: relative; /* anchor for .titlebar-drag */
   display: flex;

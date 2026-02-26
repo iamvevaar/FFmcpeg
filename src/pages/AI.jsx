@@ -160,59 +160,61 @@ export default function AI() {
 
     return (
         <div className="ai-page">
-            <div className="page-header animate-fade">
-                <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
-                    <ArrowLeft size={18} />
-                </button>
-                <div>
-                    <h1 className="page-title">AI Mode</h1>
-                    <p className="page-sub">Describe what you want — AI handles the rest</p>
-                </div>
-            </div>
-
-            <div className="ai-file-section animate-fade">
-                <label className="label">File to process</label>
-                <DropZone file={file} onFile={setFile} onClear={() => setFile(null)} />
-            </div>
-
-            <div className="chat-area">
-                {messages.length === 0 && (
-                    <div className="chat-empty animate-fade">
-                        <Wand2 size={40} style={{ color: 'var(--accent-2)', opacity: 0.4 }} />
-                        <p>Ask anything about your video</p>
-                        <div className="suggestions">
-                            {suggestions.map(s => (
-                                <button key={s} className="suggestion" onClick={() => setPrompt(s)}>
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
+            <div className="page-container">
+                <div className="page-header animate-fade">
+                    <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
+                        <ArrowLeft size={18} />
+                    </button>
+                    <div>
+                        <h1 className="page-title">AI Mode</h1>
+                        <p className="page-sub">Describe what you want — AI handles the rest</p>
                     </div>
-                )}
+                </div>
 
-                {messages.map(msg => (
-                    <Message key={msg.id} msg={msg} />
-                ))}
-                <div ref={bottomRef} />
-            </div>
+                <div className="ai-file-section animate-fade">
+                    <label className="label">File to process</label>
+                    <DropZone file={file} onFile={setFile} onClear={() => setFile(null)} />
+                </div>
 
-            <div className="chat-input-bar animate-fade">
-                <input
-                    className="input chat-input"
-                    type="text"
-                    placeholder="e.g. compress this video by 60%, or extract audio as MP3..."
-                    value={prompt}
-                    onChange={e => setPrompt(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSend()}
-                    disabled={loading}
-                />
-                <button
-                    className="btn btn-primary chat-send"
-                    onClick={handleSend}
-                    disabled={!prompt.trim() || loading}
-                >
-                    {loading ? <Loader size={16} className="spinner" /> : <Send size={16} />}
-                </button>
+                <div className="chat-area">
+                    {messages.length === 0 && (
+                        <div className="chat-empty animate-fade">
+                            <Wand2 size={40} style={{ color: 'var(--accent-2)', opacity: 0.4 }} />
+                            <p>Ask anything about your video</p>
+                            <div className="suggestions">
+                                {suggestions.map(s => (
+                                    <button key={s} className="suggestion" onClick={() => setPrompt(s)}>
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {messages.map(msg => (
+                        <Message key={msg.id} msg={msg} />
+                    ))}
+                    <div ref={bottomRef} />
+                </div>
+
+                <div className="chat-input-bar animate-fade">
+                    <input
+                        className="input chat-input"
+                        type="text"
+                        placeholder="e.g. compress this video by 60%, or extract audio as MP3..."
+                        value={prompt}
+                        onChange={e => setPrompt(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSend()}
+                        disabled={loading}
+                    />
+                    <button
+                        className="btn btn-primary chat-send"
+                        onClick={handleSend}
+                        disabled={!prompt.trim() || loading}
+                    >
+                        {loading ? <Loader size={16} className="spinner" /> : <Send size={16} />}
+                    </button>
+                </div>
             </div>
         </div>
     );

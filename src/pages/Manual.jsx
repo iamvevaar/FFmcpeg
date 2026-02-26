@@ -75,171 +75,173 @@ export default function Manual() {
 
     return (
         <div className="manual-page">
-            {/* Header */}
-            <div className="page-header animate-fade">
-                <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
-                    <ArrowLeft size={18} />
-                </button>
-                <div>
-                    <h1 className="page-title">Manual Mode</h1>
-                    <p className="page-sub">Full control over your media processing tasks</p>
-                </div>
-            </div>
-
-            <div className="manual-body">
-                {/* Left: File + Tabs */}
-                <div className="manual-left animate-fade">
-                    <section>
-                        <label className="label">Input File</label>
-                        <DropZone
-                            file={file}
-                            onFile={(path) => setFile(path)}
-                            onClear={() => setFile(null)}
-                        />
-                    </section>
-
-                    <section>
-                        <label className="label">Operation</label>
-                        <div className="tab-bar">
-                            {TABS.map(({ id, label, icon: Icon }) => (
-                                <button
-                                    key={id}
-                                    className={`tab-btn${activeTab === id ? ' active' : ''}`}
-                                    onClick={() => setActiveTab(id)}
-                                >
-                                    <Icon size={14} />
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* Operation panels */}
-                    <div className="op-panel animate-fade" key={activeTab}>
-                        {activeTab === 'convert' && (
-                            <div className="field-group">
-                                <label className="label">Output Format</label>
-                                <select
-                                    className="input select"
-                                    value={outputFormat}
-                                    onChange={e => setOutputFormat(e.target.value)}
-                                >
-                                    <optgroup label="Video">
-                                        {VIDEO_FORMATS.map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
-                                    </optgroup>
-                                    <optgroup label="Audio">
-                                        {AUDIO_FORMATS.map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
-                                    </optgroup>
-                                </select>
-                            </div>
-                        )}
-
-                        {activeTab === 'compress' && (
-                            <div className="field-group">
-                                <div className="slider-header">
-                                    <label className="label">Quality</label>
-                                    <span className="slider-value">{quality}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min={10} max={100}
-                                    value={quality}
-                                    onChange={e => setQuality(+e.target.value)}
-                                />
-                                <div className="slider-hints">
-                                    <span>Smaller file</span>
-                                    <span>Higher quality</span>
-                                </div>
-                                <p className="field-note">CRF {percentToCrf(quality)} · {quality >= 80 ? 'Visually lossless' : quality >= 60 ? 'Good balance' : quality >= 40 ? 'Compressed' : 'Highly compressed'}</p>
-                            </div>
-                        )}
-
-                        {activeTab === 'extractAudio' && (
-                            <div className="field-group">
-                                <label className="label">Audio Format</label>
-                                <select
-                                    className="input select"
-                                    value={audioFormat}
-                                    onChange={e => setAudioFormat(e.target.value)}
-                                >
-                                    {AUDIO_FORMATS.map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
-                                </select>
-                            </div>
-                        )}
-
-                        {activeTab === 'trim' && (
-                            <div className="field-row">
-                                <div className="field-group">
-                                    <label className="label">Start Time</label>
-                                    <input
-                                        className="input"
-                                        type="text"
-                                        placeholder="00:00:00"
-                                        value={startTime}
-                                        onChange={e => setStartTime(e.target.value)}
-                                    />
-                                </div>
-                                <div className="field-group">
-                                    <label className="label">End Time</label>
-                                    <input
-                                        className="input"
-                                        type="text"
-                                        placeholder="00:01:00"
-                                        value={endTime}
-                                        onChange={e => setEndTime(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'resize' && (
-                            <div className="field-row">
-                                <div className="field-group">
-                                    <label className="label">Width (px)</label>
-                                    <input
-                                        className="input"
-                                        type="number"
-                                        value={resizeW}
-                                        onChange={e => setResizeW(+e.target.value)}
-                                    />
-                                </div>
-                                <div className="field-group">
-                                    <label className="label">Height (px)</label>
-                                    <input
-                                        className="input"
-                                        type="number"
-                                        value={resizeH}
-                                        onChange={e => setResizeH(+e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'thumbnail' && (
-                            <div className="field-group">
-                                <label className="label">Timestamp</label>
-                                <input
-                                    className="input"
-                                    type="text"
-                                    placeholder="00:00:05"
-                                    value={thumbTs}
-                                    onChange={e => setThumbTs(e.target.value)}
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    <button
-                        className="btn btn-primary run-btn"
-                        onClick={handleRun}
-                        disabled={!file || running}
-                    >
-                        {running ? (
-                            <><span className="spinner" style={{ display: 'inline-block', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white' }} /> Processing...</>
-                        ) : (
-                            <><Play size={16} fill="currentColor" /> Run Operation</>
-                        )}
+            <div className="page-container">
+                {/* Header */}
+                <div className="page-header animate-fade">
+                    <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
+                        <ArrowLeft size={18} />
                     </button>
+                    <div>
+                        <h1 className="page-title">Manual Mode</h1>
+                        <p className="page-sub">Full control over your media processing tasks</p>
+                    </div>
+                </div>
+
+                <div className="manual-body">
+                    {/* Left: File + Tabs */}
+                    <div className="manual-left animate-fade">
+                        <section>
+                            <label className="label">Input File</label>
+                            <DropZone
+                                file={file}
+                                onFile={(path) => setFile(path)}
+                                onClear={() => setFile(null)}
+                            />
+                        </section>
+
+                        <section>
+                            <label className="label">Operation</label>
+                            <div className="tab-bar">
+                                {TABS.map(({ id, label, icon: Icon }) => (
+                                    <button
+                                        key={id}
+                                        className={`tab-btn${activeTab === id ? ' active' : ''}`}
+                                        onClick={() => setActiveTab(id)}
+                                    >
+                                        <Icon size={14} />
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* Operation panels */}
+                        <div className="op-panel animate-fade" key={activeTab}>
+                            {activeTab === 'convert' && (
+                                <div className="field-group">
+                                    <label className="label">Output Format</label>
+                                    <select
+                                        className="input select"
+                                        value={outputFormat}
+                                        onChange={e => setOutputFormat(e.target.value)}
+                                    >
+                                        <optgroup label="Video">
+                                            {VIDEO_FORMATS.map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+                                        </optgroup>
+                                        <optgroup label="Audio">
+                                            {AUDIO_FORMATS.map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            )}
+
+                            {activeTab === 'compress' && (
+                                <div className="field-group">
+                                    <div className="slider-header">
+                                        <label className="label">Quality</label>
+                                        <span className="slider-value">{quality}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={10} max={100}
+                                        value={quality}
+                                        onChange={e => setQuality(+e.target.value)}
+                                    />
+                                    <div className="slider-hints">
+                                        <span>Smaller file</span>
+                                        <span>Higher quality</span>
+                                    </div>
+                                    <p className="field-note">CRF {percentToCrf(quality)} · {quality >= 80 ? 'Visually lossless' : quality >= 60 ? 'Good balance' : quality >= 40 ? 'Compressed' : 'Highly compressed'}</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'extractAudio' && (
+                                <div className="field-group">
+                                    <label className="label">Audio Format</label>
+                                    <select
+                                        className="input select"
+                                        value={audioFormat}
+                                        onChange={e => setAudioFormat(e.target.value)}
+                                    >
+                                        {AUDIO_FORMATS.map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            {activeTab === 'trim' && (
+                                <div className="field-row">
+                                    <div className="field-group">
+                                        <label className="label">Start Time</label>
+                                        <input
+                                            className="input"
+                                            type="text"
+                                            placeholder="00:00:00"
+                                            value={startTime}
+                                            onChange={e => setStartTime(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="field-group">
+                                        <label className="label">End Time</label>
+                                        <input
+                                            className="input"
+                                            type="text"
+                                            placeholder="00:01:00"
+                                            value={endTime}
+                                            onChange={e => setEndTime(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'resize' && (
+                                <div className="field-row">
+                                    <div className="field-group">
+                                        <label className="label">Width (px)</label>
+                                        <input
+                                            className="input"
+                                            type="number"
+                                            value={resizeW}
+                                            onChange={e => setResizeW(+e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="field-group">
+                                        <label className="label">Height (px)</label>
+                                        <input
+                                            className="input"
+                                            type="number"
+                                            value={resizeH}
+                                            onChange={e => setResizeH(+e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'thumbnail' && (
+                                <div className="field-group">
+                                    <label className="label">Timestamp</label>
+                                    <input
+                                        className="input"
+                                        type="text"
+                                        placeholder="00:00:05"
+                                        value={thumbTs}
+                                        onChange={e => setThumbTs(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            className="btn btn-primary run-btn"
+                            onClick={handleRun}
+                            disabled={!file || running}
+                        >
+                            {running ? (
+                                <><span className="spinner" style={{ display: 'inline-block', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white' }} /> Processing...</>
+                            ) : (
+                                <><Play size={16} fill="currentColor" /> Run Operation</>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
