@@ -1,6 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, ListOrdered } from 'lucide-react';
 import Home from './pages/Home.jsx';
 import Manual from './pages/Manual.jsx';
 import AI from './pages/AI.jsx';
@@ -12,12 +12,15 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isSettingsPage = location.pathname === '/settings';
+  const { jobs, isOpen, toggleQueue } = useJobStore();
+  const activeJobs = jobs.filter(j => j.status === 'running' || j.status === 'queued').length;
 
   return (
     <div className="app-shell">
       <div className="main-content">
         <div className="app-topbar">
           <div className="topbar-drag-fill" />
+          {/* Queue toggle */}
           <button
             type="button"
             className={`topbar-btn${isSettingsPage ? ' active' : ''}`}
@@ -28,6 +31,21 @@ function AppLayout() {
             <SettingsIcon size={16} />
             <span>Settings</span>
           </button>
+          <button
+            type="button"
+            className={`topbar-btn topbar-queue-btn${isOpen ? ' active' : ''}`}
+            onClick={toggleQueue}
+            aria-label="Toggle job queue"
+            title="Job Queue"
+          >
+            <ListOrdered size={16} />
+            <span>Queue</span>
+            {activeJobs > 0 && (
+              <span className="queue-badge">{activeJobs}</span>
+            )}
+          </button>
+          {/* Settings */}
+
         </div>
         <Routes>
           <Route path="/" element={<Home />} />

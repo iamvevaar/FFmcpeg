@@ -125,6 +125,28 @@ body {
   background: rgba(139,92,246,0.16);
 }
 
+/* Queue toggle badge */
+.topbar-queue-btn {
+  position: relative;
+}
+
+.queue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+
 /* ── Glass Card ─────────────────────────────── */
 .glass {
   background: var(--color-surface);

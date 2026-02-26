@@ -4,6 +4,9 @@ let jobCounter = 0;
 
 const useJobStore = create((set, get) => ({
   jobs: [],
+  isOpen: false,
+  toggleQueue: () => set(s => ({ isOpen: !s.isOpen })),
+  openQueue:   () => set({ isOpen: true }),
 
   addJob: (operation, label, filePath) => {
     const id = `job_${++jobCounter}_${Date.now()}`;
