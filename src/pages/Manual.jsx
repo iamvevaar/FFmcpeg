@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Play, FileAudio, Scissors, Maximize2, Droplets, Image } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import useJobStore from '../stores/useJobStore.js';
 import './Manual.css';
@@ -20,6 +21,7 @@ function crfToPercent(crf) { return Math.round(100 - ((crf - 18) / (51 - 18)) * 
 function percentToCrf(pct) { return Math.round(18 + ((100 - pct) / 100) * (51 - 18)); }
 
 export default function Manual() {
+    const navigate = useNavigate();
     const [file, setFile] = useState(null);
     const [activeTab, setActiveTab] = useState('convert');
     const [running, setRunning] = useState(false);
@@ -75,6 +77,9 @@ export default function Manual() {
         <div className="manual-page">
             {/* Header */}
             <div className="page-header animate-fade">
+                <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
+                    <ArrowLeft size={18} />
+                </button>
                 <div>
                     <h1 className="page-title">Manual Mode</h1>
                     <p className="page-sub">Full control over your media processing tasks</p>

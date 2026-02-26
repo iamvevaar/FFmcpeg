@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import { Sliders, Wand2, Zap, ChevronRight } from 'lucide-react';
 import './Home.css';
 
@@ -27,6 +28,11 @@ const modes = [
 
 export default function Home() {
     const navigate = useNavigate();
+    const [activeMode, setActiveMode] = useState('manual');
+    const selectedMode = useMemo(
+        () => modes.find(mode => mode.key === activeMode) || modes[0],
+        [activeMode]
+    );
 
     return (
         <div className="home-page">
@@ -36,37 +42,56 @@ export default function Home() {
                 <div className="home-logo">
                     <Zap size={24} fill="currentColor" />
                 </div>
-                <h1 className="home-title">Welcome to FFmcp</h1>
+                <h1 className="home-title">Welcome to FFMCPeg</h1>
                 <p className="home-subtitle">Professional media processing, powered by FFmpeg — no terminal required.</p>
             </header>
 
-            <div className="home-cards">
-                {modes.map(({ key, to, icon: Icon, title, subtitle, description, color, features }, idx) => (
-                    <div
-                        key={key}
-                        className="mode-card glass glass-hover animate-fade"
-                        style={{ animationDelay: `${idx * 0.12}s`, '--card-accent': color }}
-                        onClick={() => navigate(to)}
+
+            <div className="home-tabs animate-fade">
+                {modes.map(mode => (
+                    <button
+                        key={mode.key}
+                        type="button"
+                        className={`home-tab${activeMode === mode.key ? ' active' : ''}`}
+                        onClick={() => setActiveMode(mode.key)}
                     >
-                        <div className="mode-card-icon" style={{ background: `${color}1a`, border: `1px solid ${color}33` }}>
-                            <Icon size={28} style={{ color }} />
-                        </div>
-                        <div className="mode-card-body">
-                            <p className="mode-subtitle">{subtitle}</p>
-                            <h2 className="mode-title">{title}</h2>
-                            <p className="mode-desc">{description}</p>
-                            <ul className="mode-features">
-                                {features.map(f => (
-                                    <li key={f}><span className="feature-dot" style={{ background: color }} />{f}</li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div className="mode-card-cta">
-                            <span>Get started</span>
-                            <ChevronRight size={16} />
-                        </div>
-                    </div>
+                        <mode.icon size={16} />
+                        <span>{mode.title}</span>
+                    </button>
                 ))}
+            </div>
+
+            <div className="home-cards">
+                <div
+                    key={selectedMode.key}
+                    className="mode-card glass glass-hover animate-fade"
+                    style={{ '--card-accent': selectedMode.color }}
+                    onClick={() => navigate(selectedMode.to)}
+                >
+                    <div
+                        className="mode-card-icon"
+                        style={{ background: `${selectedMode.color}1a`, border: `1px solid ${selectedMode.color}33` }}
+                    >
+                        <selectedMode.icon size={28} style={{ color: selectedMode.color }} />
+                    </div>
+                    <div className="mode-card-body">
+                        <p className="mode-subtitle">{selectedMode.subtitle}</p>
+                        <h2 className="mode-title">{selectedMode.title}</h2>
+                        <p className="mode-desc">{selectedMode.description}</p>
+                        <ul className="mode-features">
+                            {selectedMode.features.map(feature => (
+                                <li key={feature}>
+                                    <span className="feature-dot" style={{ background: selectedMode.color }} />
+                                    {feature}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="mode-card-cta">
+                        <span>Open {selectedMode.title}</span>
+                        <ChevronRight size={16} />
+                    </div>
+                </div>
             </div>
         </div>
     );

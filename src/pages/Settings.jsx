@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Key, Folder, Save, CheckCircle, Monitor } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Key, Folder, Save, CheckCircle, Monitor, ArrowLeft } from 'lucide-react';
 import './Settings.css';
 
 export default function Settings() {
+    const navigate = useNavigate();
     const [apiKey, setApiKey] = useState('');
     const [outputFolder, setOutputFolder] = useState('');
     const [ffmpegPath, setFfmpegPath] = useState('');
@@ -33,6 +35,9 @@ export default function Settings() {
     return (
         <div className="settings-page">
             <div className="page-header animate-fade">
+                <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
+                    <ArrowLeft size={18} />
+                </button>
                 <div>
                     <h1 className="page-title">Settings</h1>
                     <p className="page-sub">Configure API keys, output paths, and more</p>

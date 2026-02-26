@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Wand2, Play, FolderOpen, FileVideo, Bot, User, Loader, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Send, Wand2, Play, FolderOpen, FileVideo, Bot, User, Loader, AlertCircle, ArrowLeft } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import useJobStore from '../stores/useJobStore.js';
 import './AI.css';
@@ -76,6 +77,7 @@ function Message({ msg }) {
 }
 
 export default function AI() {
+    const navigate = useNavigate();
     const [file, setFile] = useState(null);
     const [prompt, setPrompt] = useState('');
     const [messages, setMessages] = useState([]);
@@ -159,6 +161,9 @@ export default function AI() {
     return (
         <div className="ai-page">
             <div className="page-header animate-fade">
+                <button className="page-back-btn" onClick={() => navigate('/')} aria-label="Go back">
+                    <ArrowLeft size={18} />
+                </button>
                 <div>
                     <h1 className="page-title">AI Mode</h1>
                     <p className="page-sub">Describe what you want — AI handles the rest</p>
