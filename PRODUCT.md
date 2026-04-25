@@ -2,9 +2,9 @@
 
 > A delightfully simple desktop video utility, with the power of HandBrake and the ease of an AI assistant.
 
-**Last updated:** 2026-04-25
-**Owner:** @iamvevaar
-**Status:** Draft v1 (post-HandBrake competitive review)
+**Last updated:** 2026-04-25  
+**Owner:** @iamvevaar  
+**Status:** Phase 1 foundation **largely complete** — Batch, curated presets, filters, and subtitles remain in Phases 2–3.
 
 ---
 
@@ -28,10 +28,10 @@ The technical engine (FFmpeg + ffprobe) is the same as HandBrake's. The differen
 | Target user                  | Power users / hobbyists / pros                                                                                               | Creators, knowledge workers, casual users — and power users who want a nicer UI                                                        |
 | Surface area                 | ~200 controls visible on a single window                                                                                     | Progressive disclosure: one obvious primary action per screen, advanced controls one click away                                        |
 | Default experience           | "Open Source → Pick Preset → Start"                                                                                          | "Drop a file → Tell us what you want → Done"                                                                                           |
-| Aesthetic                    | Native-toolkit dense (GTK / macOS Cocoa)                                                                                     | Meta-store inspired light theme, frosted glass, motion, generous whitespace                                                            |
+| Aesthetic                    | Native-toolkit dense (GTK / macOS Cocoa)                                                                                     | Meta Store–inspired light theme, frosted glass, motion, generous whitespace                                                            |
 | Differentiators they have    | DVD/Blu-ray ripping, anamorphic PAR, x264 expert syntax, mature filters, deep chapter editing                                | —                                                                                                                                      |
-| Differentiators we have      | —                                                                                                                            | AI Mode (NL → FFmpeg), live frame-scrub previews, social-platform-tuned presets, modern queue UI, instant in-app preview & comparison  |
-| Codebase                     | C / Objective-C / GTK                                                                                                        | Electron + React 19 + Vite + Zustand                                                                                                   |
+| Differentiators we have      | —                                                                                                                            | AI Mode (NL → FFmpeg), live frame-scrub timeline previews, social-platform-tuned presets (next), modern queue UI, future compare preview |
+| Codebase                     | C / Objective-C / GTK                                                                                                        | Electron + React + Vite + Zustand                                                                                                   |
 | License                      | GPL-2                                                                                                                        | (TBD — likely MIT or Apache-2 to encourage adoption)                                                                                   |
 
 ---
@@ -47,33 +47,32 @@ We design for personas 1 & 2 by default; personas 3 & 4 are served by progressiv
 
 ---
 
-## 4. What we have today (Feb 2026 baseline)
+## 4. What we have today (April 2026)
 
-### Implemented
-- **Modes**: Home with AI / Manual switcher; Settings page; Job Queue side panel.
-- **Manual Mode operations**: Convert (format only), Compress (CRF slider), Extract Audio, Trim (start/end), Resize (W×H), Thumbnail extraction.
-- **AI Mode**: Gemini-powered NL → operation+options translator with command preview.
-- **Infra**: Electron `ffmpeg:run` IPC, ffprobe-backed media info, file dialogs, output-folder & API-key store, persistent job queue with progress events, single-frame extraction for timeline scrubbing.
-- **UX polish**: Drag/drop input, YouTube-style timeline scrub previews (just shipped), pill-shaped tabs, frosted topbar, animated transitions, focus-visible system.
+### Implemented (shipping in app)
+- **Shell**: Home (AI / Manual tabs), top bar (queue, settings), no sidebar; `DESIGN.md` light theme; global back affordance; job queue side panel.
+- **Manual Mode — operations** (per-tab): **Convert** (MP4 / MKV / WebM, remux; Web-optimized / `-movflags +faststart` for MP4; WebM re-encodes to VP9 + Opus), **Compress** (H.264 / H.265 / AV1 / VP9, hardware when available, CRF or target bitrate or target file size, 5-step encoder speed, framerate, HDR detect + **Preserve HDR** for H.265/AV1 with 10-bit + metadata), **Audio** extract, **Trim**, **Resize** (resolution ladder 4K→480p, custom W×H, don’t-upscale, framerate), **Transform** (rotate 0/90/180/270, flip H/V, **numeric** crop; re-encodes to H.264), **Thumbnail**.
+- **AI Mode**: Gemini NL → `operation` + `options`, command JSON preview, run; prompts kept in sync with Manual (container, quality modes, codecs, resize ladder, framerate, transform, HDR, etc.).
+- **Infra**: Electron IPC (`ffmpeg:run`, `ffprobe:info`, `ffmpeg:listEncoders`, `ffmpeg:extractFrame` for frames), Zustand job store, output folder + API key in store, encoders probed at startup.
+- **UX**: Drag/drop, **YouTube-style timeline scrub** (debounced `extractFrame`), **HDR** read from ffprobe on file select, source FPS/dimensions for helper copy.
 
-### Not yet implemented (gaps)
-- No preset system (only ad-hoc tabs).
-- No batch input (one file at a time).
-- No codec / encoder selection.
-- No hardware acceleration.
-- No filters (denoise, deinterlace, sharpen, grayscale).
-- No subtitle handling.
-- No multi-track audio.
-- No crop / rotate / flip.
-- No bitrate or target-file-size controls.
-- No watermark UI (service exists, no UI).
-- No comparison preview (before/after).
+### Still missing vs HandBrake casual feature set
+- **Preset system** (curated + user-saved) and **multi-file / batch** queue.
+- **Visual crop** (drag on live frame) — transform uses numbers only.
+- **Video filters** (denoise, deinterlace, sharpen, etc.).
+- **Subtitles** (SRT, burn-in) and **multi-track / mixdown** audio.
+- **Short encode preview** and **before/after** compare; **raw ffmpeg log** in UI.
+- **Chapters** UI; **pause** in queue; **reorder** queue.
+- **Watermark** (backend stub exists, no Manual/AI surface).
+
+### Not yet implemented (gaps) — see §8 for phased plan
+- Batch, presets, filters, full audio stack, subs, compare preview, chapters, CLI, auto-update, localization.
 
 ---
 
 ## 5. HandBrake → FFMCPeg feature map
 
-This is the master parity table. Each row is also a backlog item. **Status legend:** ✅ shipped · 🟡 partial · ⬜ not started · ❌ explicitly out of scope.
+Master parity table. **Status legend:** ✅ shipped · 🟡 partial / follow-up · ⬜ not started · ❌ out of scope.
 
 ### 5.1 Source / input
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
@@ -83,20 +82,20 @@ This is the master parity table. Each row is also a backlog item. **Status legen
 | Open DVD / Blu-ray                          | Skip — legal complexity, niche                                                                            | ❌     |
 | Title selection (multi-title sources)       | Auto-pick longest title; expose dropdown if >1                                                            | ⬜     |
 | Angle selection                             | Skip                                                                                                      | ❌     |
-| Range: Chapters / Seconds / Frames          | Trim slider already covers seconds; expose chapter picker if file has them                                | 🟡     |
+| Range: Chapters / Seconds / Frames          | Trim by seconds; chapter picker TBD                                                                       | 🟡     |
 
 ### 5.2 Format / container
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
-| MP4 / MKV / WebM container                  | Container picker in Convert tab                                                                           | 🟡 (mp4 only well-tested) |
-| Web Optimized (MOOV atom front)             | Toggle in Convert advanced section                                                                        | ⬜     |
+| MP4 / MKV / WebM container                  | **Convert** tab: three containers                                                                         | ✅     |
+| Web Optimized (MOOV atom front)             | **Web-optimized** toggle on MP4 (`+faststart`)                                                            | ✅     |
 | Align A/V Start                             | Default ON, exposed under "Advanced"                                                                      | ⬜     |
 | iPod 5G Compatibility                       | Hide — legacy                                                                                             | ❌     |
 | Passthru common metadata                    | Default ON                                                                                                | ⬜     |
-| Optimize for streaming                      | Toggle                                                                                                    | ⬜     |
+| Optimize for streaming                      | Partially covered by faststart; dedicated toggle TBD                                                    | 🟡     |
 
 ### 5.3 Presets (the killer feature)
-HandBrake ships **~80 built-in presets** organized into folders: General, Web, Devices, Matroska, Hardware, Production. We will ship a curated, **modernized** set:
+HandBrake ships **~80 built-in presets** organized into folders. We ship a **curated, modernized** set (Phase 2):
 
 | FFMCPeg Preset Group       | Examples                                                                                                                                                          | Status |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
@@ -112,17 +111,18 @@ A preset stores: container, codec(s), bitrate/CRF, framerate, target dimensions,
 ### 5.4 Dimensions
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
-| Source dimension display                    | Show in file info panel                                                                                   | 🟡     |
-| Resolution Limit (Auto/720p/1080p/4K…)      | Dropdown in Resize/preset                                                                                 | ⬜     |
-| Scaled Size override                        | Width × Height inputs                                                                                     | ✅     |
+| Source dimension display                    | Shown in **Resize** / **Transform** / compress helpers (ffprobe)                                         | 🟡     |
+| Resolution Limit (4K / 1440p / 1080p / …)  | **Resize** resolution ladder + custom + don’t-upscale (no separate “Auto” label; behavior = clamp to ladder / source) | 🟡     |
+| Scaled Size override                        | Custom W × H with lock aspect                                                                               | ✅     |
 | Anamorphic / PAR                            | Hidden — keep "Auto" only                                                                                 | ❌     |
-| Optimal Size                                | Default ON                                                                                                | ⬜     |
-| Allow Upscaling                             | Toggle                                                                                                    | ⬜     |
-| Cropping (Auto / Manual / Loose)            | "Crop" tab with auto-detect-bars + drag handles on a live preview frame                                   | ⬜     |
-| Flipping (horizontal / vertical)            | Buttons in Crop/Rotate tab                                                                                | ⬜     |
-| Rotation (0/90/180/270°)                    | Buttons in Crop/Rotate tab                                                                                | ⬜     |
+| Optimal Size                                | "Don’t upscale" approximates not enlarging small sources                                                                 | 🟡     |
+| Allow Upscaling                             | Toggle on **Resize** (allow upscale when off = enforce ladder max without forcing bigger than source when on) | ✅     |
+| Cropping (manual)                           | **Transform** — numeric crop (L/T/W/H)                                                                   | 🟡     |
+| Cropping (live on frame)                    | Drag handles on `extractFrame` preview                                                                   | ⬜     |
+| Flipping (horizontal / vertical)            | **Transform** tab                                                                                       | ✅     |
+| Rotation (0/90/180/270°)                    | **Transform** tab                                                                                        | ✅     |
 | Borders / Padding (color, size)             | Optional — under Crop advanced                                                                            | ⬜     |
-| Modulus                                     | Hidden — auto                                                                                             | ❌     |
+| Modulus                                     | Hidden — even dimensions in UI paths                                                                      | 🟡     |
 
 ### 5.5 Filters
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
@@ -139,25 +139,26 @@ A preset stores: container, codec(s), bitrate/CRF, framerate, target dimensions,
 ### 5.6 Video
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
-| Video encoder (x264/x265/AV1/VP9/MPEG4)     | Encoder picker (curated): H.264, H.265 (HEVC), AV1, VP9 — with hardware variants auto-detected           | ⬜     |
-| Quality (CRF / QP)                          | Already have CRF; rename UI to "Quality" with descriptive ladder                                          | ✅     |
-| Average bitrate                             | Alternative quality mode: "Target bitrate" slider                                                         | ⬜     |
-| Target file size                            | "Fit in __ MB" — compute bitrate from duration                                                            | ⬜     |
+| Video encoder (x264/x265/AV1/VP9/MPEG4)     | H.264, H.265, AV1, VP9 + **hardware** variants when detected                                            | ✅     |
+| Quality (CRF / QP)                          | **Compress** quality % → per-encoder CRF/QP                                                                 | ✅     |
+| Average bitrate                             | **Compress** target bitrate mode                                                                          | ✅     |
+| Target file size                            | **Compress** "fit in __ MB" from duration                                                                 | ✅     |
 | Multi-pass                                  | Auto-on for bitrate / file-size modes                                                                     | ⬜     |
-| Framerate (Same as source / 24/30/60…)      | Dropdown                                                                                                  | ⬜     |
+| Framerate (Same as source / 24/30/60…)      | **Compress** + **Resize**                                                                                | ✅     |
 | FPS mode (CFR / VFR / PFR)                  | Default PFR; CFR option in advanced                                                                       | ⬜     |
-| Encoder preset (placebo → ultrafast)        | "Speed vs Quality" 5-step slider mapped to preset                                                         | ⬜     |
+| Encoder preset (placebo → ultrafast)        | **5-step encoding speed** (per-encoder mapping)                                                            | ✅     |
 | Encoder tune (film, animation, grain…)      | Optional dropdown in advanced                                                                             | ⬜     |
 | Encoder profile / level                     | Auto by default, exposed in advanced                                                                      | ⬜     |
-| Hardware acceleration (VideoToolbox/NVENC/QSV/VCN/MF) | Auto-detect available hardware on launch; expose in encoder picker as "H.264 (Apple GPU)" etc.   | ⬜     |
-| HDR passthrough                             | Auto-on for HDR sources                                                                                   | ⬜     |
+| Hardware acceleration (VideoToolbox/NVENC/QSP/AMF) | **listEncoders** at startup; UI toggle on **Compress**                                              | ✅     |
+| HDR passthrough                             | **ffprobe** transfer detection; **Preserve HDR** on compress (H.265/AV1, 10-bit + metadata) — *not* stream-copy HDR | 🟡     |
+| SDR / HDR tonemapping                        | If user turns **Preserve HDR** off, optional tone-map to SDR (TBD)                                       | ⬜     |
 | x264 raw options                            | Hidden                                                                                                    | ❌     |
 
 ### 5.7 Audio
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
 | Multi-track audio                           | List of source tracks with checkboxes                                                                     | ⬜     |
-| Encoder (AAC/Opus/AC3/MP3/FLAC)             | Per-track dropdown                                                                                        | 🟡     |
+| Encoder (AAC/Opus/AC3/MP3/FLAC)             | **Extract** format picker; per-track TBD                                                                 | 🟡     |
 | Mixdown (mono/stereo/5.1/7.1)               | Per-track dropdown                                                                                        | ⬜     |
 | Bitrate / Quality                           | Per-track                                                                                                 | ⬜     |
 | Samplerate                                  | Per-track (default Auto)                                                                                  | ⬜     |
@@ -165,7 +166,7 @@ A preset stores: container, codec(s), bitrate/CRF, framerate, target dimensions,
 | Track name passthru                         | Default ON                                                                                                | ⬜     |
 | Passthru (copy without re-encode)           | "Copy audio (lossless)" toggle                                                                            | ⬜     |
 | Audio normalization                         | Toggle (post-process loudnorm)                                                                            | ⬜     |
-| Extract audio only                          | Existing operation; wired to preset group                                                                 | ✅     |
+| Extract audio only                          | **Audio** operation                                                                                        | ✅     |
 
 ### 5.8 Subtitles
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
@@ -185,41 +186,43 @@ A preset stores: container, codec(s), bitrate/CRF, framerate, target dimensions,
 ### 5.10 Queue / Workflow
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
-| Add to queue (without starting)             | Existing queue                                                                                            | ✅     |
-| Start / pause / cancel jobs                 | Existing                                                                                                  | 🟡 (pause not yet) |
+| Add to queue (without starting)             | **Queue** exists                                                                                        | 🟡     |
+| Start / pause / cancel jobs                 | Start + cancel; **pause** TBD                                                                            | 🟡     |
 | Reorder queue                               | Drag-and-drop                                                                                             | ⬜     |
 | Per-job preset                              | Each queued job carries its own preset snapshot                                                           | ⬜     |
 | When-done action (sleep, quit, notify)      | Dropdown                                                                                                  | ⬜     |
 | Activity log                                | Hidden by default; "Show log" reveals raw ffmpeg output                                                   | ⬜     |
-| Reveal in Finder/Explorer                   | Existing                                                                                                  | ✅     |
+| Reveal in Finder/Explorer                   | If implemented via shell open                                                                               | 🟡     |
 
 ### 5.11 Preview
 | HandBrake capability                        | FFMCPeg plan                                                                                              | Status |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
-| Live preview (single frame)                 | Existing `extractFrame` IPC; show frame for current settings                                              | ✅     |
+| Live preview (single frame)                 | `extractFrame` for timeline scrub; **Transform** has no in-app frame crop overlay yet                     | 🟡     |
 | Encode short preview (e.g. 30 s)            | "Preview 30 s" button → tiny encode → A/B player                                                          | ⬜     |
-| Before / after split slider                 | New: drag a divider to compare source vs encoded frame                                                    | ⬜     |
-| Timeline scrub thumbnail                    | Just shipped                                                                                              | ✅     |
+| Before / after split slider                 | Drag a divider to compare source vs encoded frame                                                    | ⬜     |
+| Timeline scrub thumbnail                    | **Shipped** (trim, thumb, etc.)                                                                            | ✅     |
 
 ---
 
 ## 6. Information architecture
 
-Today's IA stays mostly intact; we add Presets and Files as first-class concepts.
+**Current:** Home → AI / Manual; Settings; queue as overlay; Manual = operation tabs (Convert, Compress, …).
+
+**Target (Phase 2+):** add Presets and Files as first-class concepts.
 
 ```
 Home  (mode picker: AI / Manual)
-├─ AI Mode             — Chat → preview → run
+├─ AI Mode             — Chat → preview → run (preset-aware in Phase 2)
 ├─ Manual Mode
 │   ├─ File(s) panel   — drag/drop, multi-file, picked file metadata
 │   ├─ Preset rail     — collapsed by default; opens to a curated grid
 │   └─ Settings panels — Convert · Quality · Dimensions · Filters · Audio · Subtitles · Output
-└─ Settings            — output folder, AI key, hardware encoders detected, theme
+└─ Settings            — output folder, AI key, hardware encoders detected, theme, (later) Whisper model
 
 Persistent across pages:
 - Topbar (brand + back + queue + settings)
 - Queue side panel
-- Toast/notification system
+- Toast/notification system (TBD)
 ```
 
 Each settings panel uses **progressive disclosure**: 2-4 most common controls always visible, an "Advanced" disclosure reveals the long tail.
@@ -229,57 +232,97 @@ Each settings panel uses **progressive disclosure**: 2-4 most common controls al
 ## 7. Design principles
 
 1. **Default to delight** — Sensible defaults beat exhaustive options. The user should be able to drop a file, hit a green button, and get a usable result.
-2. **One primary action per screen** — Always a single, obvious blue pill button.
+2. **One primary action per screen** — Always a single, obvious primary button.
 3. **Presets > knobs** — A picked preset overrides individual knobs; the knobs panel becomes a "preset adjustment" rather than a configuration matrix.
 4. **Preview-first** — Wherever a setting changes a visible outcome (crop, filter, framerate), show the result on a real frame, not just a number.
 5. **Progressive disclosure** — Advanced controls live behind a single click, never on the front page.
-6. **Speak human** — Replace `CRF`, `pfr`, `lapsharp` with "Quality", "Auto framerate", "Soft sharpen" — but keep the technical name in a tooltip for power users.
-7. **Light, calm, Meta-store inspired** — Existing visual language (DESIGN.md) stays.
+6. **Speak human** — Replace `CRF`, `pfr`, `lapsharp` with "Quality", "Auto framerate", "Soft sharpen" — keep the technical name in a tooltip for power users.
+7. **Light, calm, Meta–store inspired** — `DESIGN.md` visual language.
 8. **Zero terminal** — The user never sees a shell window. Errors are translated to plain English with suggested fixes.
 
 ---
 
-## 8. Roadmap
+## 8. Roadmap (four phases)
 
-We deliver the HandBrake-parity feature set in **four phases**, each releasable on its own.
+Each phase is releasable on its own. **Phase 1** is treated as **done** except where noted (live crop preview, optional "Auto" resolution label, optional tonemap-to-SDR).
 
-### Phase 1 — Foundation (next 2-3 sprints)
-**Goal:** Make the manual mode robust enough to handle 80 % of HandBrake use cases.
-- [ ] Codec / encoder picker (H.264, H.265, AV1, VP9) with hardware variants auto-detected.
-- [ ] Quality modes: CRF / target bitrate / target file size.
-- [ ] Container picker (MP4 / MKV / WebM) + Web Optimized toggle.
-- [ ] Framerate dropdown (Same as source, 24, 25, 30, 50, 60, …).
-- [ ] Resolution-limit ladder (Auto, 4K, 1440p, 1080p, 720p, 480p) added to Resize.
-- [ ] Crop / Rotate / Flip operation with live frame preview.
-- [ ] Encoder speed slider (5 steps).
-- [ ] HDR passthrough auto-detection.
+### Phase 1 — Foundation **(complete for core encode path)**
 
-### Phase 2 — Presets & Batch
-**Goal:** Make the app feel "magical" via curated presets and multi-file flows.
-- [ ] Preset system (built-in JSON + user `~/.ffmcp/presets/`).
-- [ ] Preset picker UI on Home + on Manual mode top.
-- [ ] All preset groups in §5.3 shipped.
-- [ ] Multi-file drop zone → queue.
-- [ ] Per-job preset snapshot + drag-reorder queue.
-- [ ] When-done actions.
-- [ ] Save / import / export user presets.
+**Goal:** Manual mode can handle the majority of everyday transcode + trim + resize + transform + compress scenarios, with AI parity.
 
-### Phase 3 — Filters, Audio, Subtitles
-**Goal:** Reach feature parity for the rest of HandBrake's casual features.
-- [ ] Filters tab: Denoise / Sharpen / Chroma smooth / Grayscale / Deinterlace (3-step controls each).
-- [ ] Multi-track audio with per-track encoder/mixdown/bitrate.
-- [ ] Audio loudness normalization.
-- [ ] Subtitle tab with SRT import + burn-in toggle.
-- [ ] AI auto-transcription → SRT (Whisper local).
+- [x] Codec / encoder picker (H.264, H.265, AV1, VP9) with **hardware** variants auto-detected (`ffmpeg -encoders`, UI toggle).
+- [x] Quality modes: **CRF** (as quality %) / **target bitrate** / **target file size** (with duration probe).
+- [x] **Container** picker: MP4 / MKV / WebM + **Web optimized** (faststart for MP4; VP9+Opus path for WebM remux from non-WebM).
+- [x] **Framerate** control (same as source + common rates) on **Compress** and **Resize**.
+- [x] **Resolution ladder** (4K, 1440p, 1080p, 720p, 480p, custom) + **don’t upscale** + custom W×H + aspect lock.
+- [x] **Transform** operation: **rotate** (0/90/180/270), **flip** H/V, **numeric crop** (W/H from top-left).  
+  *Follow-up:* drag crop + rotation on a **live frame** (not only numbers).
+- [x] **Encoder speed** (5 steps) mapped per encoder (x264/x265, VP9, AV1, NVENC, VT, QSV, AMF, …).
+- [x] **HDR** auto-detection (ffprobe) + **Preserve HDR** on **Compress** for H.265/AV1 (10-bit + color metadata; WebM input → MP4 out when needed).
+
+**Phase 1 follow-ups (optional polish, not blockers)**
+- [ ] Live **crop/rotate** preview on extracted frame (HandBrake parity for §5.4 "Cropping (live)").
+- [ ] **Auto** as explicit label for "match source / ladder clamp" in Resize if we want copy-paste with docs.
+- [ ] **Tonemap HDR → SDR** when Preserve HDR is off (explicit filter chain).
+- [ ] **Watermark** surface (wire existing backend to Manual + AI).
+- [ ] **Pause** a running job; **reorder** queue (rest overlap Phase 2).
+
+---
+
+### Phase 2 — Presets, batch, workflow **(next major milestone)**
+
+**Goal:** One-tap social/device/archive exports and multi-file workflows.
+
+| Requirement | Notes |
+| ----------- | ----- |
+| **Built-in JSON presets** | Ship first wave: Quick Export + For Social (§5.3); define schema (container, video, audio, framerate, dimensions, optimize). |
+| **User preset storage** | `~/.ffmcp/presets/` (or app userData); name, description, version. |
+| **Preset picker UI** | On Home (quick apply) + Manual (rail or drawer); search/filter; preview subtitle. |
+| **Multi-file input** | Drop list or "Add files"; each file **or** selection becomes queued jobs. |
+| **Per-job options** | Each queue item stores full snapshot (preset + overrides); no shared mutable state. |
+| **Queue reorder** | Drag-and-drop; optional **pause** / **remove** (enhance current queue). |
+| **When-done** | System notify / play sound / open folder / sleep / quit (platform-appropriate). |
+| **Import / export** | Single preset `.json` and preset pack (zip) for share/reddit/wiki. |
+| **AI + presets** | NL can say "use Discord 25MB preset" → resolve to stored preset id + file (see open questions). |
+| **Metadata passthrough (basic)** | Optional toggle: copy common metadata from source (where remux/encode allows). |
+| **Toast / notification layer** | Non-blocking success/error; queue badge updates. |
+| **Home refresh** | Surface "Recent preset" and "Last output folder" shortcuts. |
+
+---
+
+### Phase 3 — Filters, audio, subtitles
+
+**Goal:** Parity for **casual** HandBrake users who need cleanup, language, and sound control — without a full DAW.
+
+| Area | Requirements |
+| ---- | ------------ |
+| **Filters tab (Manual + AI)** | Deinterlace (on/auto/off + **Decomb**-style default); denoise (Off / Light / Strong); chroma smooth; sharpen; grayscale; deblock (slider optional). Expose 3-step where possible; "Advanced" for NLMeans / full presets later. **Colorspace** (Auto, Rec.709, Rec.2020, sRGB) for edge cases. |
+| **Interlace / detelecine** | Optional auto-detect; detelecine simple mode first. |
+| **Audio (multi-track)** | List source audio streams; per-track: **on/off**, **codec** (AAC/Opus/AC-3/MP3/FLAC), **mixdown** (stereo / 5.1 / passthru), **bitrate/quality**, **sample rate (Auto)**. |
+| **Loudness** | Optional **loudnorm**-style pass (target LUFS) with sensible default. |
+| **Subtitles** | Add external **SRT**; list embedded subs; **burn-in** per track; language labels when present. |
+| **AI speech → SRT** | Local **Whisper** (or on-demand model download) → editable SRT in UI → optional burn-in. **Settings:** model size, device (CPU/GPU). |
+| **Filter preview** | Single-frame preview with current filter graph where feasible (`extractFrame` + same vf chain sample). |
+
+---
 
 ### Phase 4 — Power, polish, parity
-**Goal:** Win over HandBrake power users.
-- [ ] Chapter editing UI.
-- [ ] Encode-30-s preview + before/after split slider.
-- [ ] Activity log with raw ffmpeg command shown.
-- [ ] CLI option: launch ffmcp from terminal with a preset name.
-- [ ] Auto-update.
-- [ ] Localization scaffolding.
+
+**Goal:** Retain pro users and **compare** to HandBrake for depth.
+
+| Requirement | Notes |
+| ----------- | ----- |
+| **Chapters** | Read chapter markers; edit list; pass-through to container when supported. |
+| **Short encode preview** | e.g. 10–30 s encode at current settings; temp file; optional A/B. |
+| **Before/after** | Split or side-by-side **frame** compare (and sync slider with timeline). |
+| **Activity / debug** | "Show log" with **full ffmpeg command line** + stderr tail; copy to clipboard. |
+| **CLI** | `ffmcp export --preset "YouTube 1080p" input.mov` (exact UX TBD). |
+| **Auto-update** | Electron updater channel; release notes. |
+| **Localization** | i18n scaffolding; extract strings; community translations later. |
+| **Queue pause/cancel** | Full job control; **retry failed** with same options. |
+| **Batch from folder** | Optional "include subfolders" and pattern filter. |
+| **Export settings profile** | Backup entire `~/.ffmcp` or sync (optional, later). |
+| **Performance** | Profile large files; avoid blocking UI; optional **hardware** decode for preview. |
 
 ---
 
@@ -288,16 +331,16 @@ We deliver the HandBrake-parity feature set in **four phases**, each releasable 
 - DVD / Blu-ray / disc ripping (legal, niche).
 - Anamorphic / advanced PAR controls.
 - Raw `x264-options=` style strings.
-- Detelecine custom 9-value filter strings.
-- Dolby Vision authoring (parsing only via passthru).
-- A non-linear editor (cuts/effects/composition). HandBrake doesn't either.
-- Cloud/SaaS encoding. Strictly local-first.
+- Detelecine custom 9-value filter strings in the main UI.
+- Dolby Vision **authoring** (metadata passthru in encode only, if at all).
+- A non-linear editor (cuts/effects/composition) beyond trim + static crop.
+- Cloud/SaaS encoding. **Local-first** only.
 
 ---
 
 ## 10. Success metrics
 
-| Metric                                              | Target (90 days post-Phase 2) |
+| Metric                                              | Target (90 days post–Phase 2) |
 | --------------------------------------------------- | ----------------------------- |
 | Time from app launch → first export                 | < 30 s                        |
 | Time from drop → preview frame                      | < 1 s                         |
@@ -311,18 +354,18 @@ We deliver the HandBrake-parity feature set in **four phases**, each releasable 
 
 ## 11. Open questions
 
-1. **Hardware-encoder UX:** Show as separate encoder rows ("H.264 (Apple GPU)") or as a checkbox modifier on the existing rows? — Leaning separate.
-2. **Preset language:** "YouTube 1080p" implies ToS positioning — do we name presets after platforms, or describe the output ("Vertical 1080×1920 ≤90s")? — Probably both: friendly name + descriptive subtitle.
-3. **Local Whisper model size** — bundled 75 MB tiny vs. on-demand download? — Probably download on first use, with a "model" picker in Settings.
-4. **Should AI Mode have access to the full preset library** (so it can say "I'll apply the YouTube 1080p preset")? — Yes, ship in Phase 2.
-5. **License** — MIT vs Apache-2 vs GPL-3 (matching HandBrake's GPL-2 ancestry)? — TBD with maintainer.
+1. **Hardware-encoder UX:** Shipped as a **checkbox** on codec with detection — revisit if we split rows per platform.
+2. **Preset language:** "YouTube 1080p" vs descriptive subtitle — use **both** in Phase 2.
+3. **Whisper** — bundled tiny vs. on-demand download; **Settings** model picker.
+4. **AI + full preset library** — Yes in Phase 2 (resolve preset id from NL).
+5. **License** — MIT vs Apache-2 vs GPL-3: TBD.
 
 ---
 
 ## 12. References
 
-- HandBrake repo: `./HandBrake` (vendored for reference; do not link binaries).
-- HandBrake built-in presets: `./HandBrake/preset/preset_builtin.json` (~80 presets across 6 folders).
-- Visual design system: `./DESIGN.md`.
-- Existing IPC surface: `./electron/preload.cjs`.
-- Existing operations service: `./electron/ffmpeg-service.cjs`.
+- HandBrake repo: reference only; do not ship HandBrake binaries.
+- HandBrake built-in presets: `preset_builtin.json` (~80 presets).
+- Visual design: `DESIGN.md`.
+- IPC: `electron/preload.cjs`.
+- Operations: `electron/ffmpeg-service.cjs`.
