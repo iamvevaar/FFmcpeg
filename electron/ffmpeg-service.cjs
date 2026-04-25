@@ -128,15 +128,38 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, avai
 
   switch (operation) {
     case 'convert': {
-      const ext = options.outputFormat || 'mp4';
+      const ext = (options.outputFormat || 'mp4').toLowerCase();
+      // MP4: default to faststart when the flag is omitted (AI / older clients); only skip when false.
+      const webOpt = ext === 'mp4' && options.webOptimized !== false;
       outputFile = getOutputPath(input, outputFolder, 'converted', ext);
-      cmd = ffmpeg(input)
-        .output(outputFile)
-        .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
-        .on('end', () => onComplete({ success: true, outputPath: outputFile }))
-        .on('error', err => onError(err.message));
-      if (options.videoCodec) cmd = cmd.videoCodec(options.videoCodec);
-      if (options.audioCodec) cmd = cmd.audioCodec(options.audioCodec);
+
+      // MP4 / MKV: remux (stream copy) for speed when codecs are compatible.
+      // "Web optimized" for MP4 = move moov atom to the file start (-movflags +faststart) for
+      // progressive / streaming playback. WebM: transcode to VP9 + Opus (Matroska subset).
+      if (ext === 'webm') {
+        cmd = ffmpeg(input)
+          .output(outputFile)
+          .videoCodec('libvpx-vp9')
+          .audioCodec('libopus')
+          .outputOptions(['-crf 32', '-b:v 0', '-b:a 128k'])
+          .on('start', () => onProgress({ type: 'start', note: 'convert: WebM (VP9 + Opus)' }))
+          .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
+          .on('end', () => onComplete({ success: true, outputPath: outputFile }))
+          .on('error', err => onError(err.message));
+      } else {
+        const outOpts = ['-c', 'copy'];
+        if (ext === 'mp4' && webOpt) outOpts.push('-movflags', '+faststart');
+        cmd = ffmpeg(input)
+          .output(outputFile)
+          .outputOptions(outOpts)
+          .on('start', () => onProgress({
+            type: 'start',
+            note: ext === 'mp4' && webOpt ? 'convert: remux + faststart' : 'convert: remux (copy streams)',
+          }))
+          .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
+          .on('end', () => onComplete({ success: true, outputPath: outputFile }))
+          .on('error', err => onError(err.message));
+      }
       break;
     }
 

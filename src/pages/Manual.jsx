@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap } from 'lucide-react';
+import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap, Globe } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import TimelinePreview from '../components/TimelinePreview.jsx';
 import useJobStore from '../stores/useJobStore.js';
@@ -15,7 +15,8 @@ const TABS = [
     { id: 'thumbnail', label: 'Thumbnail', icon: Image },
 ];
 
-const VIDEO_FORMATS = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv', 'ts'];
+/** HandBrake-style containers: MP4/MKV = fast remux; WebM = VP9 + Opus transcode. */
+const CONTAINERS = ['mp4', 'mkv', 'webm'];
 const AUDIO_FORMATS = ['mp3', 'aac', 'wav', 'flac', 'm4a', 'ogg'];
 
 function crfToPercent(crf) { return Math.round(100 - ((crf - 18) / (51 - 18)) * 100); }
@@ -28,7 +29,8 @@ export default function Manual() {
     const [running, setRunning] = useState(false);
 
     // Tab-specific state
-    const [outputFormat, setOutputFormat] = useState('mp4');
+    const [outputFormat, setOutputFormat] = useState('mp4');   // 'mp4' | 'mkv' | 'webm'
+    const [webOptimized, setWebOptimized] = useState(true);     // +faststart, MP4 only
     const [audioFormat, setAudioFormat] = useState('mp3');
     const [quality, setQuality] = useState(70); // percent slider (CRF mode)
     const [compressMode, setCompressMode] = useState('crf'); // 'crf' | 'bitrate' | 'filesize'
@@ -220,8 +222,12 @@ export default function Manual() {
             ? `Resize ${resizeFinal.w}×${resizeFinal.h}`
             : `Resize → ${resolutionPreset.toUpperCase()} (${resizeFinal.w}×${resizeFinal.h})`;
 
+        const convertLabel = outputFormat === 'mp4' && webOptimized
+            ? 'Convert → MP4 (web-optimized)'
+            : `Convert → ${outputFormat.toUpperCase()}`;
+
         const opLabels = {
-            convert: `Convert → ${outputFormat.toUpperCase()}`,
+            convert: convertLabel,
             compress: compressLabel,
             extractAudio: `Extract Audio → ${audioFormat.toUpperCase()}`,
             trim: `Trim ${startTime} → ${endTime}`,
@@ -246,7 +252,7 @@ export default function Manual() {
         })();
 
         const opOptions = {
-            convert: { inputPath: file, outputFormat },
+            convert: { inputPath: file, outputFormat, webOptimized: outputFormat === 'mp4' ? webOptimized : false },
             compress: compressOptions,
             extractAudio: { inputPath: file, audioFormat },
             trim: { inputPath: file, startTime, endTime },
@@ -315,30 +321,48 @@ export default function Manual() {
                         <div className="op-panel animate-fade" key={activeTab}>
                             {activeTab === 'convert' && (
                                 <div className="field-group">
-                                    <label className="label">Video</label>
-                                    <div className="tab-bar">
-                                        {VIDEO_FORMATS.map(f => (
+                                    <label className="label">Container</label>
+                                    <div className="codec-grid container-grid">
+                                        {CONTAINERS.map(f => (
                                             <button
                                                 key={f}
-                                                className={`tab-btn${outputFormat === f ? ' active' : ''}`}
+                                                type="button"
+                                                className={`codec-card${outputFormat === f ? ' active' : ''}`}
                                                 onClick={() => setOutputFormat(f)}
                                             >
-                                                {f.toUpperCase()}
+                                                <span className="codec-card-label">.{f}</span>
+                                                <span className="codec-card-sub">
+                                                    {f === 'mp4' && 'Broadest compatibility'}
+                                                    {f === 'mkv' && 'No re-encode · Matroska'}
+                                                    {f === 'webm' && 'Web · VP9 + Opus'}
+                                                </span>
                                             </button>
                                         ))}
                                     </div>
-                                    <label className="label" style={{ marginTop: 10 }}>Audio</label>
-                                    <div className="tab-bar">
-                                        {AUDIO_FORMATS.map(f => (
-                                            <button
-                                                key={f}
-                                                className={`tab-btn${outputFormat === f ? ' active' : ''}`}
-                                                onClick={() => setOutputFormat(f)}
-                                            >
-                                                {f.toUpperCase()}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    {outputFormat === 'mp4' && (
+                                        <button
+                                            type="button"
+                                            className={`hw-toggle${webOptimized ? ' active' : ''}`}
+                                            onClick={() => setWebOptimized(v => !v)}
+                                        >
+                                            <span className="hw-toggle-icon">
+                                                <Globe size={14} />
+                                            </span>
+                                            <span className="hw-toggle-text">
+                                                <strong>Web-optimized (fast start)</strong>
+                                                <span>Moves metadata to the start for streaming (YouTube, browsers)</span>
+                                            </span>
+                                            <span className={`hw-toggle-switch${webOptimized ? ' on' : ''}`}>
+                                                <span className="hw-toggle-knob" />
+                                            </span>
+                                        </button>
+                                    )}
+                                    {outputFormat === 'mkv' && (
+                                        <p className="field-note">Remuxes streams without re-encoding when possible. No MP4 &quot;fast start&quot; — that&apos;s a different container model.</p>
+                                    )}
+                                    {outputFormat === 'webm' && (
+                                        <p className="field-note">Re-encodes video to VP9 and audio to Opus (required for a standards-compliant .webm).</p>
+                                    )}
                                 </div>
                             )}
 

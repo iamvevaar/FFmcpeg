@@ -172,7 +172,8 @@ export default function AI() {
     };
 
     const suggestions = [
-        'Convert this video to MP4',
+        'Convert this video to MP4 (web-optimized for YouTube)',
+        'Remux to MKV without re-encoding',
         'Extract audio as MP3',
         'Compress to fit in 25 MB for Discord',
         'Compress for WhatsApp (under 16 MB)',

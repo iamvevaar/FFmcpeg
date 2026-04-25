@@ -207,6 +207,12 @@
   .codec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Convert: 3 container cards */
+.container-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 520px) {
+  .container-grid { grid-template-columns: 1fr; }
+}
+
 /* Resolution grid uses 6 cells (4K · 1440p · 1080p · 720p · 480p · Custom) */
 .resolution-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 

@@ -230,7 +230,8 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
   "operation": one of "convert" | "compress" | "extractAudio" | "trim" | "resize" | "watermark" | "thumbnail",
   "description": "brief human-readable description of what will happen",
   "options": {
-    // for convert: { "outputFormat": "mp4" }
+    // for convert: { "outputFormat": "mp4" | "mkv" | "webm", "webOptimized": true }
+    //   webOptimized: MP4 only — -movflags +faststart. Omit or false = standard MP4. Ignored for mkv/webm.
     //
     // for compress: choose ONE of three quality modes, and OPTIONALLY pick a codec:
     //   Codec (optional, default "h264"):
@@ -276,6 +277,13 @@ Codec hints:
 - "use VP9" / "for the web"            → codec="vp9"
 - "use my GPU" / "hardware accel"      → useHardware=true
 - Default codec is h264 if unspecified.
+
+Convert hints:
+- "remux to mkv" / "put in Matroska"     → outputFormat=mkv
+- "as webm" / "to WebM"                 → outputFormat=webm
+- "mp4" / "convert to MP4"             → outputFormat=mp4 (omit webOptimized or true for -movflags +faststart)
+- "for YouTube" / "streaming" / "progressive" → outputFormat=mp4, webOptimized=true
+- "raw mp4" / "no fast start"          → outputFormat=mp4, webOptimized=false
 
 Resize hints:
 - "make it 720p" / "downscale to 720p" → resize, width=1280, height=720
