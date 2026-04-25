@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap, Globe, Crop } from 'lucide-react';
+import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap, Globe, Crop, Sun } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import TimelinePreview from '../components/TimelinePreview.jsx';
 import useJobStore from '../stores/useJobStore.js';
@@ -22,6 +22,30 @@ const AUDIO_FORMATS = ['mp3', 'aac', 'wav', 'flac', 'm4a', 'ogg'];
 
 function crfToPercent(crf) { return Math.round(100 - ((crf - 18) / (51 - 18)) * 100); }
 function percentToCrf(pct) { return Math.round(18 + ((100 - pct) / 100) * (51 - 18)); }
+
+/** Rough HDR detection from ffprobe video stream (BT.2020 + PQ/HLG or 10-bit). */
+function describeHdrFromVideoStream(s) {
+    if (!s) {
+        return { isHdr: false, label: null, transfer: null, primaries: null, space: null, pixFmt: null };
+    }
+    const transfer = s.color_transfer;
+    const primaries = s.color_primaries;
+    const space = s.color_space;
+    const pixFmt = s.pix_fmt || '';
+    if (transfer === 'smpte2084') {
+        return { isHdr: true, label: 'HDR10 (PQ)', transfer, primaries, space, pixFmt };
+    }
+    if (transfer === 'arib-std-b67') {
+        return { isHdr: true, label: 'HLG', transfer, primaries, space, pixFmt };
+    }
+    if (transfer === 'smpte428') {
+        return { isHdr: true, label: 'HDR', transfer, primaries, space, pixFmt };
+    }
+    if (/p10|10le|12le|14le|16le/i.test(pixFmt) && (space && space.includes('bt2020'))) {
+        return { isHdr: true, label: 'HDR (10-bit / BT.2020)', transfer, primaries, space, pixFmt };
+    }
+    return { isHdr: false, label: null, transfer, primaries, space, pixFmt };
+}
 
 /** ffprobe avg_frame_rate like "30000/1001" → ~29.97 */
 function parseAvgFrameRate(str) {
@@ -103,6 +127,9 @@ export default function Manual() {
     const [cropW, setCropW] = useState(0);
     const [cropH, setCropH] = useState(0);
     const [transformError, setTransformError] = useState(false);
+    const [hdrMeta, setHdrMeta] = useState(null);
+    const [preserveHdr, setPreserveHdr] = useState(false);
+    const [hdrCompressError, setHdrCompressError] = useState(false);
 
     const { addJob, updateJob } = useJobStore();
     const dropzoneRef = useRef();
@@ -227,6 +254,8 @@ export default function Manual() {
             setSourceWidth(null);
             setSourceHeight(null);
             setSourceFps(null);
+            setHdrMeta(null);
+            setPreserveHdr(false);
             return;
         }
         window.ffmcp?.getMediaInfo(path).then(info => {
@@ -248,11 +277,16 @@ export default function Manual() {
             }
             const fpsN = parseAvgFrameRate(videoStream?.avg_frame_rate) || parseAvgFrameRate(videoStream?.r_frame_rate);
             setSourceFps(fpsN);
+            const hm = describeHdrFromVideoStream(videoStream);
+            setHdrMeta(hm);
+            setPreserveHdr(!!hm.isHdr);
         }).catch(() => {
             setVideoDuration(null);
             setSourceWidth(null);
             setSourceHeight(null);
             setSourceFps(null);
+            setHdrMeta(null);
+            setPreserveHdr(false);
         });
     };
 
@@ -282,6 +316,14 @@ export default function Manual() {
             }
         }
 
+        if (activeTab === 'compress' && hdrMeta?.isHdr && preserveHdr) {
+            if (codec !== 'h265' && codec !== 'av1') {
+                setHdrCompressError(true);
+                setTimeout(() => setHdrCompressError(false), 5000);
+                return;
+            }
+        }
+
         setRunning(true);
 
         const compressLabel = (() => {
@@ -292,6 +334,7 @@ export default function Manual() {
                     : `Compress (${quality}% quality)`;
             if (encoderSpeed !== 3) t += ` · step ${encoderSpeed}/5`;
             if (outputFps !== 'source') t += ` · ${outputFps} fps`;
+            if (hdrMeta?.isHdr && preserveHdr) t += ' · HDR';
             return t;
         })();
 
@@ -330,6 +373,13 @@ export default function Manual() {
         const compressOptions = (() => {
             const base = { inputPath: file, codec, useHardware: useHardware && hwAvailableFor(codec), encoderSpeed };
             if (outputFps !== 'source') base.outputFps = outputFps;
+            if (hdrMeta?.isHdr && preserveHdr) {
+                base.preserveHdr = true;
+                base.colorTransfer = hdrMeta.transfer;
+                base.colorPrimaries = hdrMeta.primaries;
+                base.colorSpace = hdrMeta.space;
+                base.pixFmtIn = hdrMeta.pixFmt;
+            }
             if (compressMode === 'bitrate') {
                 return { ...base, qualityMode: 'bitrate', bitrateKbps: Math.round(bitrateMbps * 1000) };
             }
@@ -404,6 +454,8 @@ export default function Manual() {
                                     setSourceWidth(null);
                                     setSourceHeight(null);
                                     setSourceFps(null);
+                                    setHdrMeta(null);
+                                    setPreserveHdr(false);
                                 }}
                                 error={fileError}
                                 dropzoneRef={dropzoneRef}
@@ -512,6 +564,39 @@ export default function Manual() {
                                                 <span className="hw-toggle-knob" />
                                             </span>
                                         </button>
+                                    )}
+
+                                    {hdrMeta?.isHdr && (
+                                        <div style={{ marginTop: 14 }}>
+                                            {hdrCompressError && (
+                                                <p className="field-note transform-error">To preserve HDR, pick <strong>H.265</strong> or <strong>AV1</strong> (not H.264 or VP9).</p>
+                                            )}
+                                            <div className="resize-info">
+                                                <div className="resize-info-row">
+                                                    <span className="resize-info-label">Detected</span>
+                                                    <span className="resize-info-value resize-info-output">{hdrMeta.label}</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className={`hw-toggle${preserveHdr ? ' active' : ''}`}
+                                                onClick={() => setPreserveHdr(v => !v)}
+                                            >
+                                                <span className="hw-toggle-icon">
+                                                    <Sun size={14} />
+                                                </span>
+                                                <span className="hw-toggle-text">
+                                                    <strong>Preserve HDR when compressing</strong>
+                                                    <span>10-bit output and color metadata where the encoder supports it</span>
+                                                </span>
+                                                <span className={`hw-toggle-switch${preserveHdr ? ' on' : ''}`}>
+                                                    <span className="hw-toggle-knob" />
+                                                </span>
+                                            </button>
+                                            {preserveHdr && (codec === 'h264' || codec === 'vp9') && (
+                                                <p className="field-note transform-error">Switch codec to H.265 or AV1 for HDR, or turn Preserve HDR off.</p>
+                                            )}
+                                        </div>
                                     )}
 
                                     <label className="label" style={{ marginTop: 14 }}>Encoding speed</label>

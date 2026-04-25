@@ -249,6 +249,8 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
     //   3) Target file size — best for "fit in X MB / under X MB / for Discord/WhatsApp":
     //      { "qualityMode": "filesize", "targetSizeMB": 25 }
     //   "encoderSpeed": 1 | 2 | 3 | 4 | 5  // 1=fastest encode, 5=slowest (smaller on average). Default 3.
+    //   "preserveHdr": true   // if input is HDR, keep 10-bit + metadata (H.265 or AV1). Omit false.
+    //   (optional, filled by app when known) "colorTransfer", "colorPrimaries", "colorSpace", "pixFmtIn"
     //
     // for extractAudio: { "audioFormat": "mp3" }
     // for trim: { "startTime": "00:00:10", "endTime": "00:01:00" }
@@ -287,6 +289,10 @@ Codec hints:
 - "use VP9" / "for the web"            → codec="vp9"
 - "use my GPU" / "hardware accel"      → useHardware=true
 - Default codec is h264 if unspecified.
+
+HDR (compress, optional):
+- "keep hdr" / "preserve hdr" / "don't tonemap"  → preserveHdr=true, codec h265 or av1
+- H.264 / VP9 cannot preserve HDR in this app — use H.265 or AV1
 
 Encoder speed (compress only, optional, default 3):
 - "fast as possible" / "quickest encode" → encoderSpeed=1

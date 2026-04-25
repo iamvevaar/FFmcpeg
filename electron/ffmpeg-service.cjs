@@ -140,6 +140,63 @@ function appendOutputFps(outputOptions, modeNote, outputFps) {
   return `${modeNote} · ${r} fps`;
 }
 
+/** Appends 10-bit / metadata flags for HDR preservation; returns a short suffix for the progress note. */
+function appendHdrForCompressOutput(outputOptions, encoder, options, outputExt) {
+  const ext = (outputExt || 'mp4').toLowerCase();
+  const tagHvc1 = ext === 'mp4' || ext === 'm4v' || ext === 'mov';
+  const tr = options.colorTransfer || '';
+
+  if (encoder === 'libx265') {
+    outputOptions.push('-pix_fmt', 'yuv420p10le');
+    if (options.colorPrimaries) outputOptions.push('-color_primaries', options.colorPrimaries);
+    if (options.colorTransfer) outputOptions.push('-color_trc', options.colorTransfer);
+    if (options.colorSpace) outputOptions.push('-colorspace', options.colorSpace);
+    let x = 'repeat-headers=1:aud=1';
+    if (tr === 'smpte2084') x += ':hdr10=1:hdr-opt=1';
+    else if (tr === 'arib-std-b67') {
+      x += ':colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc';
+    }
+    outputOptions.push('-x265-params', x);
+    if (tagHvc1) outputOptions.push('-tag:v', 'hvc1');
+    return ' · HDR';
+  }
+
+  if (encoder === 'libsvtav1' || encoder === 'libaom-av1') {
+    outputOptions.push('-pix_fmt', 'yuv420p10le');
+    if (options.colorPrimaries) outputOptions.push('-color_primaries', options.colorPrimaries);
+    if (options.colorTransfer) outputOptions.push('-color_trc', options.colorTransfer);
+    if (options.colorSpace) outputOptions.push('-colorspace', options.colorSpace);
+    return ' · HDR';
+  }
+
+  if (encoder === 'hevc_videotoolbox') {
+    outputOptions.push('-profile:v', 'main10');
+    outputOptions.push('-pix_fmt', 'p010le');
+    if (options.colorPrimaries) outputOptions.push('-color_primaries', options.colorPrimaries);
+    if (options.colorTransfer) outputOptions.push('-color_trc', options.colorTransfer);
+    if (options.colorSpace) outputOptions.push('-colorspace', options.colorSpace);
+    if (tagHvc1) outputOptions.push('-tag:v', 'hvc1');
+    return ' · HDR';
+  }
+
+  if (encoder.includes('hevc') && (encoder.includes('nvenc') || encoder.includes('_qsv') || encoder.includes('_amf'))) {
+    outputOptions.push('-profile:v', 'main10');
+    outputOptions.push('-pix_fmt', 'p010le');
+    if (tagHvc1) outputOptions.push('-tag:v', 'hvc1');
+    return ' · HDR';
+  }
+
+  if (encoder.startsWith('av1') && (encoder.includes('nvenc') || encoder.includes('qsv') || encoder.includes('amf'))) {
+    outputOptions.push('-pix_fmt', 'p010le');
+    if (options.colorPrimaries) outputOptions.push('-color_primaries', options.colorPrimaries);
+    if (options.colorTransfer) outputOptions.push('-color_trc', options.colorTransfer);
+    if (options.colorSpace) outputOptions.push('-colorspace', options.colorSpace);
+    return ' · HDR';
+  }
+
+  return '';
+}
+
 /**
  * Build -vf for crop / rotate (° CW) / flips. Re-encodes to H.264 + copy audio.
  * rotate: 0 | 90 | 180 | 270
@@ -299,6 +356,10 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, avai
         }
 
         modeNote = appendOutputFps(outputOptions, modeNote, options.outputFps);
+        if (options.preserveHdr) {
+          const hdrNote = appendHdrForCompressOutput(outputOptions, encoder, options, outputExt);
+          if (hdrNote) modeNote += hdrNote;
+        }
 
         // Pick an audio codec compatible with the container.
         const audioCodec = outputExt === 'webm' ? 'libopus' : 'aac';
