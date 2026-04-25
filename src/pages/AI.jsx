@@ -178,7 +178,7 @@ export default function AI() {
         'Compress to fit in 25 MB for Discord',
         'Compress for WhatsApp (under 16 MB)',
         'Compress with H.265 using my GPU',
-        'Re-encode to AV1 for smallest size',
+        'Re-encode to AV1 for smallest size (slowest encode)',
         'Trim first 30 seconds',
         'Downscale to 720p',
         'Compress this to 24 fps',

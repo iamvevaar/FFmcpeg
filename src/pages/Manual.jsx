@@ -38,6 +38,14 @@ function parseAvgFrameRate(str) {
     return Number.isFinite(f) && f > 0 ? f : null;
 }
 
+const ENCODER_SPEED_STEPS = [
+    { value: 1, label: 'Fastest', sub: 'Quick' },
+    { value: 2, label: 'Fast', sub: 'Short wait' },
+    { value: 3, label: 'Balanced', sub: 'Default' },
+    { value: 4, label: 'Slow', sub: 'Smaller' },
+    { value: 5, label: 'Slowest', sub: 'Best' },
+];
+
 const FPS_OPTIONS = [
     { value: 'source', label: 'Same as source' },
     { value: '23.976', label: '23.976 (NTSC film)' },
@@ -67,6 +75,7 @@ export default function Manual() {
     const [codec, setCodec] = useState('h264');              // 'h264' | 'h265' | 'av1' | 'vp9'
     const [useHardware, setUseHardware] = useState(false);
     const [encoders, setEncoders] = useState([]);            // available ffmpeg encoders
+    const [encoderSpeed, setEncoderSpeed] = useState(3);       // 1 = fastest ... 5 = slowest
     const [startTime, setStartTime] = useState('00:00:00');
     const [endTime, setEndTime] = useState('00:00:30');
     const [trimStartSec, setTrimStartSec] = useState(0);
@@ -251,6 +260,7 @@ export default function Manual() {
                 : compressMode === 'filesize'
                     ? `Compress to ${targetSizeMB} MB`
                     : `Compress (${quality}% quality)`;
+            if (encoderSpeed !== 3) t += ` · step ${encoderSpeed}/5`;
             if (outputFps !== 'source') t += ` · ${outputFps} fps`;
             return t;
         })();
@@ -278,7 +288,7 @@ export default function Manual() {
         };
 
         const compressOptions = (() => {
-            const base = { inputPath: file, codec, useHardware: useHardware && hwAvailableFor(codec) };
+            const base = { inputPath: file, codec, useHardware: useHardware && hwAvailableFor(codec), encoderSpeed };
             if (outputFps !== 'source') base.outputFps = outputFps;
             if (compressMode === 'bitrate') {
                 return { ...base, qualityMode: 'bitrate', bitrateKbps: Math.round(bitrateMbps * 1000) };
@@ -453,6 +463,22 @@ export default function Manual() {
                                             </span>
                                         </button>
                                     )}
+
+                                    <label className="label" style={{ marginTop: 14 }}>Encoding speed</label>
+                                    <p className="field-note" style={{ marginTop: 4, marginBottom: 8 }}>1 = fastest, 5 = slowest. Slower encodes are often a bit smaller for the same quality.</p>
+                                    <div className="codec-grid speed-grid">
+                                        {ENCODER_SPEED_STEPS.map(({ value, label, sub }) => (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                className={`codec-card${encoderSpeed === value ? ' active' : ''}`}
+                                                onClick={() => setEncoderSpeed(value)}
+                                            >
+                                                <span className="codec-card-label">{label}</span>
+                                                <span className="codec-card-sub">Step {value} — {sub}</span>
+                                            </button>
+                                        ))}
+                                    </div>
 
                                     <label className="label" style={{ marginTop: 14 }}>Compression Mode</label>
                                     <div className="tab-bar">

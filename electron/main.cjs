@@ -248,6 +248,7 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
     //      { "qualityMode": "bitrate", "bitrateKbps": 5000 }   // kbps
     //   3) Target file size — best for "fit in X MB / under X MB / for Discord/WhatsApp":
     //      { "qualityMode": "filesize", "targetSizeMB": 25 }
+    //   "encoderSpeed": 1 | 2 | 3 | 4 | 5  // 1=fastest encode, 5=slowest (smaller on average). Default 3.
     //
     // for extractAudio: { "audioFormat": "mp3" }
     // for trim: { "startTime": "00:00:10", "endTime": "00:01:00" }
@@ -281,6 +282,12 @@ Codec hints:
 - "use VP9" / "for the web"            → codec="vp9"
 - "use my GPU" / "hardware accel"      → useHardware=true
 - Default codec is h264 if unspecified.
+
+Encoder speed (compress only, optional, default 3):
+- "fast as possible" / "quickest encode" → encoderSpeed=1
+- "fast encoding" / "don't wait"        → encoderSpeed=2
+- "best compression" / "smallest file" / "take your time" → encoderSpeed=4 or 5
+- "balanced" / omit                    → encoderSpeed=3
 
 Framerate hints (compress / resize only — not convert with stream copy):
 - "24 fps" / "film frame rate"           → outputFps="24"

@@ -203,6 +203,16 @@
 
 .codec-card.active .codec-card-sub { color: rgba(255, 255, 255, 0.8); }
 
+.speed-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .speed-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .speed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 720px) {
   .codec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

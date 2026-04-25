@@ -35,6 +35,49 @@ function resolveEncoder(codecId, useHardware, availableEncoders) {
   return entry.sw[0]; // fallback
 }
 
+// 1 = fastest encode, 5 = slowest (smaller file on average for software encoders).
+function getEncoderSpeedOptions(encoder, stepIn) {
+  const step = Math.max(1, Math.min(5, Number(stepIn) || 3));
+  const i = step - 1;
+  if (encoder === 'libx264' || encoder === 'libx265') {
+    const p = ['ultrafast', 'veryfast', 'medium', 'slow', 'veryslow'];
+    return { args: ['-preset', p[i]], short: p[i] };
+  }
+  if (encoder === 'libvpx-vp9') {
+    const cpu = [5, 4, 3, 1, 0][i];
+    return { args: ['-cpu-used', String(cpu)], short: `cpu-used=${cpu}` };
+  }
+  if (encoder === 'libsvtav1') {
+    const pr = [12, 10, 8, 5, 3][i];
+    return { args: ['-preset', String(pr)], short: `preset=${pr}` };
+  }
+  if (encoder === 'libaom-av1') {
+    const cu = [8, 6, 4, 2, 0][i];
+    return { args: ['-cpu-used', String(cu)], short: `cpu-used=${cu}` };
+  }
+  if (encoder.endsWith('_nvenc')) {
+    const p = ['p1', 'p2', 'p3', 'p4', 'p5'][i];
+    return { args: ['-preset', p], short: p };
+  }
+  if (encoder.endsWith('_qsv')) {
+    const p = ['veryfast', 'faster', 'fast', 'slow', 'slower'];
+    return { args: ['-preset', p[i]], short: p[i] };
+  }
+  if (encoder.endsWith('_amf')) {
+    const q = ['speed', 'speed', 'balanced', 'quality', 'quality'];
+    return { args: ['-quality', q[i]], short: q[i] };
+  }
+  if (encoder.endsWith('_videotoolbox')) {
+    if (step <= 2) return { args: ['-realtime', '1'], short: 'realtime' };
+    return { args: [], short: 'default' };
+  }
+  if (encoder.endsWith('_mf')) {
+    const pr = [12, 10, 8, 5, 3];
+    return { args: ['-preset', String(pr[i])], short: `p${pr[i]}` };
+  }
+  return { args: ['-preset', 'medium'], short: 'medium' };
+}
+
 // Map the user's "quality %" slider (10-100) onto the right CLI flag for
 // the chosen encoder. Higher % = better quality for ALL codecs in the UI.
 function buildQualityFlags(encoder, qualityPercent) {
@@ -183,13 +226,13 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, avai
       const qualityMode = options.qualityMode || 'crf';
       const audioBitrateKbps = 128;
 
-      // Hardware encoders generally don't honour x264's -preset values.
-      const isHardware = /(_videotoolbox|_nvenc|_qsv|_amf|_mf)$/.test(encoder);
-      const speedFlag = isHardware ? [] : ['-preset medium'];
-
       const buildAndRun = (durationSec) => {
-        const outputOptions = [...speedFlag];
-        let modeNote = `${codecId} (${encoder})`;
+        const step = options.encoderSpeed != null
+          ? Math.max(1, Math.min(5, Number(options.encoderSpeed) || 3))
+          : 3;
+        const speed = getEncoderSpeedOptions(encoder, step);
+        const outputOptions = [...speed.args];
+        let modeNote = `${codecId} (${encoder}) · ${speed.short}`;
 
         if (qualityMode === 'bitrate') {
           const kbps = Math.max(50, Math.floor(options.bitrateKbps || 2000));
