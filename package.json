@@ -64,7 +64,8 @@
       "target": ["dmg", "zip"]
     },
     "win": {
-      "target": ["nsis", "zip"]
+      "target": ["nsis", "zip"],
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "target": ["AppImage", "tar.gz"]

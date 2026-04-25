@@ -26,6 +26,14 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v4
 
+      # Windows: NSIS/electron-builder often fails with "cannot open" / ENOENT on long
+      # absolute paths into node_modules (MAX_PATH / NSIS). Enable OS long paths.
+      - name: Windows — enable long paths (NSIS)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
@@ -35,11 +43,10 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # Must not use bash-only syntax: Windows default shell is PowerShell and will fail on ${VAR#v}
       - name: Match package.json version to git tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          VER="${GITHUB_REF_NAME#v}"
-          npm pkg set "version=$VER"
+        run: node -e 'const { execSync } = require("child_process"); const v = (process.env.GITHUB_REF_NAME || "").replace(/^v/, ""); execSync("npm pkg set version=" + JSON.stringify(v), { stdio: "inherit" });'
 
       - name: Build Web App
         run: npm run build:web
@@ -48,6 +55,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: npx electron-builder --mac --publish always
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No Apple certs in public CI — build unsigned rather than fail signing
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -56,10 +64,15 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: npx electron-builder --win --publish always
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Avoid picking a random cert from the GHA image / hung signtool (EB 26+)
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ELECTRON_BUILDER_CACHE: ${{ format('{0}/eb-cache', env.RUNNER_TEMP) }}
 
       - name: Build & Publish Electron (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: npx electron-builder --linux --publish always
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
