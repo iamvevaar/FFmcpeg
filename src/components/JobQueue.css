@@ -81,6 +81,36 @@
   gap: var(--space-3);
   animation: fadeIn 300ms ease;
   transition: border-color var(--transition), box-shadow var(--transition);
+  box-sizing: border-box;
+}
+
+/* Full-card “show in folder” for completed jobs */
+button.jq-item {
+  -webkit-app-region: no-drag;
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+}
+button.jq-item:focus {
+  outline: none;
+}
+button.jq-item:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 100, 224, 0.22);
+}
+
+.jq-item--clickable {
+  user-select: none;
+}
+.jq-item--clickable:hover {
+  border-color: rgba(0, 100, 224, 0.35);
+  box-shadow: 0 2px 12px rgba(0, 100, 224, 0.1);
+}
+.jq-item--clickable:active {
+  box-shadow: 0 1px 6px rgba(0, 100, 224, 0.08);
 }
 
 .jq-item.running { border-color: rgba(0, 100, 224, 0.35); box-shadow: 0 0 0 1px rgba(0, 100, 224, 0.1); }
@@ -133,24 +163,6 @@
   line-height: 1.5;
 }
 
-.jq-open-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-5);
-  font-size: 12px;
-  color: var(--meta-blue);
-  background: var(--meta-blue-tint);
-  border: none;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
-  transition: background var(--transition);
-}
-.jq-open-btn:hover { background: rgba(0, 100, 224, 0.18); }
-
 .jq-file {
   font-size: 12px;
   color: var(--text-secondary);
@@ -177,4 +189,27 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-height: 28px;
+}
+
+/* Folder cue: subtle by default, larger on card hover (whole card is the hit target) */
+.jq-open-cue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--meta-blue);
+  pointer-events: none;
+}
+.jq-open-cue-icon {
+  display: block;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+  opacity: 0.5;
+}
+.jq-item--clickable:hover .jq-open-cue-icon,
+.jq-item--clickable:focus-visible .jq-open-cue-icon {
+  transform: scale(1.45);
+  opacity: 1;
 }

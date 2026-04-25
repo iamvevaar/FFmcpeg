@@ -1,9 +1,106 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Wand2, Play, FolderOpen, FileVideo, Bot, User, Loader, AlertCircle, ArrowLeft, KeyRound } from 'lucide-react';
+import { Send, Wand2, Play, FolderOpen, Bot, User, Loader, AlertCircle, ArrowLeft, KeyRound, Sparkles } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import useJobStore from '../stores/useJobStore.js';
 import './AI.css';
+
+const FOLLOWUP_BY_OP = {
+    compress: [
+        'Trim the first 10 seconds of this file',
+        'Downscale to 1080p',
+        'Extract a thumbnail at 3 seconds',
+        'Remux to MP4 (web-optimized) without re-encoding if possible',
+        'Extract audio as M4A from this file',
+    ],
+    convert: [
+        'Compress for Discord (under 25 MB)',
+        'Trim the first 5 seconds',
+        'Downscale to 1280×720',
+        'Compress with H.265 and preserve HDR if the source is HDR',
+    ],
+    trim: [
+        'Compress the result to under 16 MB for WhatsApp',
+        'Re-encode the result with AV1 for smallest size',
+        'Extract a thumbnail at the new start of the video',
+    ],
+    resize: [
+        'Compress the result to save space (CRF or target size)',
+        'Set output to 30 fps and compress',
+        'Remux the file to MKV',
+    ],
+    transform: [
+        'Compress the video with H.265',
+        'Trim 15 seconds from the start',
+        'Convert to web-optimized MP4 for streaming',
+    ],
+    extractAudio: [
+        'Compress the same file for YouTube (web-optimized MP4)',
+        'Trim 30 seconds from the start of the full video for a sample',
+        'Downscale the full video to 720p',
+    ],
+    thumbnail: [
+        'Compress the full video to about 5 Mbps',
+        'Convert the main video to MP4 (web-optimized)',
+        'Extract audio as MP3 from the full file',
+    ],
+    watermark: [
+        'Resize to 1920×1080',
+        'Compress the watermarked file for web',
+    ],
+    _default: [
+        'Compress to fit 25 MB for Discord',
+        'Downscale to 720p',
+        'Extract audio as MP3',
+    ],
+};
+
+/**
+ * Suggested follow-ups after a success: primary list by operation, then lightly
+ * re-ordered so we don’t lead with the same action class the user *just* finished
+ * (e.g. after compress, trim/thumbnail first). Uses prior session runs for variety.
+ */
+function buildFollowupQueries(parsed, forPrompt, sessionRuns) {
+    const op = parsed?.operation;
+    const base = (op && FOLLOWUP_BY_OP[op]) ? [...FOLLOWUP_BY_OP[op]] : [...FOLLOWUP_BY_OP._default];
+    const justDid = op;
+
+    const isCompressy = s => /compress|mb|crf|bitrate|smaller|size/i.test(s);
+    const isTrimmy = s => /trim|seconds|clip/i.test(s);
+    if (justDid === 'compress') {
+        base.sort((a, b) => (isCompressy(a) ? 1 : 0) - (isCompressy(b) ? 1 : 0));
+    } else if (justDid === 'trim') {
+        base.sort((a, b) => (isTrimmy(a) ? 1 : 0) - (isTrimmy(b) ? 1 : 0));
+    }
+
+    if (forPrompt) {
+        const fp = forPrompt.toLowerCase();
+        if (/whatsapp|16\s*mb/.test(fp)) {
+            const line = 'Downscale to 720p to get under size limits more easily';
+            if (!base.includes(line)) base.unshift(line);
+        }
+        if (/(discord|25\s*mb)/.test(fp) && !base.some(s => s.includes('1080'))) {
+            const line2 = 'Downscale to 1080p to reduce file size before compressing';
+            if (!base.includes(line2)) base.splice(1, 0, line2);
+        }
+    }
+
+    const prevOps = new Set((sessionRuns || []).slice(-3).map(r => r.op));
+    if (prevOps.size && prevOps.has('compress') && justDid === 'compress') {
+        const line = 'Try trimming or a thumbnail next — you’ve compressed a few times';
+        if (base.length < 5) base.push(line);
+    }
+
+    const out = [];
+    const seen = new Set();
+    for (const s of base) {
+        if (out.length >= 5) break;
+        if (seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
+    }
+    return out;
+}
 
 function CommandPreview({ operation, description, options }) {
     const optStr = JSON.stringify(options, null, 2);
@@ -18,7 +115,7 @@ function CommandPreview({ operation, description, options }) {
     );
 }
 
-function Message({ msg }) {
+function Message({ msg, onFollowupSelect }) {
     return (
         <div className={`chat-msg ${msg.role}`}>
             <div className="chat-avatar">
@@ -58,6 +155,27 @@ function Message({ msg }) {
                                 )}
                             </div>
                         )}
+                        {msg.done && !msg.error && onFollowupSelect && msg.followupQueries?.length > 0 && (
+                            <div className="chat-followups" role="group" aria-label="Suggested follow-up prompts">
+                                <div className="chat-followups-head">
+                                    <Sparkles size={14} className="chat-followups-icon" aria-hidden />
+                                    <span>Try next (same file)</span>
+                                </div>
+                                <p className="chat-followups-hint">Picks a suggestion below — you can edit it before sending.</p>
+                                <div className="chat-followups-chips">
+                                    {msg.followupQueries.map(q => (
+                                        <button
+                                            key={q}
+                                            type="button"
+                                            className="chat-followup-chip"
+                                            onClick={() => onFollowupSelect(q)}
+                                        >
+                                            {q}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
                 {msg.error && (
@@ -86,7 +204,19 @@ export default function AI() {
     const bottomRef = useRef();
     const dropzoneRef = useRef();
     const [fileError, setFileError] = useState(false);
+    /** Last few successful { op, prompt } in this session (same file) — powers follow-up ordering */
+    const [sessionRuns, setSessionRuns] = useState([]);
+    const sessionRunsRef = useRef([]);
+    useEffect(() => {
+        sessionRunsRef.current = sessionRuns;
+    }, [sessionRuns]);
     const { addJob, updateJob } = useJobStore();
+    const inputRef = useRef();
+
+    const applyFollowup = useCallback((text) => {
+        setPrompt(text);
+        requestAnimationFrame(() => inputRef.current?.focus());
+    }, []);
 
     // Check if API key is configured
     useEffect(() => {
@@ -127,17 +257,19 @@ export default function AI() {
         }
 
         setPrompt('');
-        addMessage({ role: 'user', text });
+        const userPrompt = text;
+        addMessage({ role: 'user', text: userPrompt });
 
         const thinkingId = addMessage({ role: 'ai', thinking: true });
         setLoading(true);
 
         try {
-            const parsed = await window.ffmcp.sendPrompt(text, file);
+            const parsed = await window.ffmcp.sendPrompt(userPrompt, file);
             updateMessage(thinkingId, {
                 thinking: false,
                 parsed,
-                onRun: () => handleRun(thinkingId, parsed),
+                forPrompt: userPrompt,
+                onRun: () => handleRun(thinkingId, parsed, userPrompt),
                 onCancel: () => updateMessage(thinkingId, { confirmed: true, text: 'Operation cancelled.' }),
             });
         } catch (err) {
@@ -150,7 +282,7 @@ export default function AI() {
         }
     };
 
-    const handleRun = async (msgId, parsed) => {
+    const handleRun = async (msgId, parsed, userPrompt = '') => {
         if (!file) {
             updateMessage(msgId, { error: 'Please select a file above first.' });
             return;
@@ -164,7 +296,15 @@ export default function AI() {
             const opts = { inputPath: file, ...parsed.options };
             const result = await window.ffmcp.runOperation(jobId, parsed.operation, opts);
             updateJob(jobId, { status: 'done', progress: 100, outputPath: result.outputPath });
-            updateMessage(msgId, { running: false, done: true, confirmed: true, outputPath: result.outputPath });
+            const followupQueries = buildFollowupQueries(parsed, userPrompt, sessionRunsRef.current);
+            setSessionRuns(r => [...r, { op: parsed.operation, prompt: userPrompt }]);
+            updateMessage(msgId, {
+                running: false,
+                done: true,
+                confirmed: true,
+                outputPath: result.outputPath,
+                followupQueries,
+            });
         } catch (err) {
             updateJob(jobId, { status: 'error', error: err.message });
             updateMessage(msgId, { running: false, error: err.message, confirmed: true });
@@ -206,8 +346,8 @@ export default function AI() {
                     <label className="label">File to process</label>
                     <DropZone
                         file={file}
-                        onFile={(path) => { setFile(path); setFileError(false); }}
-                        onClear={() => setFile(null)}
+                        onFile={(path) => { setFile(path); setFileError(false); setSessionRuns([]); }}
+                        onClear={() => { setFile(null); setSessionRuns([]); }}
                         error={fileError}
                         dropzoneRef={dropzoneRef}
                     />
@@ -229,7 +369,7 @@ export default function AI() {
                     )}
 
                     {messages.map(msg => (
-                        <Message key={msg.id} msg={msg} />
+                        <Message key={msg.id} msg={msg} onFollowupSelect={file ? applyFollowup : undefined} />
                     ))}
                     <div ref={bottomRef} />
                 </div>
@@ -253,6 +393,7 @@ export default function AI() {
 
                 <div className="chat-input-bar animate-fade">
                     <input
+                        ref={inputRef}
                         className="input chat-input"
                         type="text"
                         placeholder="e.g. compress this video by 60%, or extract audio as MP3..."

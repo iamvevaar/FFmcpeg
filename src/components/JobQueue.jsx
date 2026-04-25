@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { CheckCircle, XCircle, Loader, FolderOpen, Trash2, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, FolderOpen, Clock } from 'lucide-react';
 import useJobStore from '../stores/useJobStore.js';
 import './JobQueue.css';
 
@@ -22,14 +22,12 @@ const OP_NAMES = {
 
 
 export default function JobQueue() {
-    const { jobs, isOpen, toggleQueue, openQueue, removeJob, clearCompleted } = useJobStore();
+    const { jobs, isOpen, toggleQueue, openQueue } = useJobStore();
 
     // Auto-open the panel whenever a new job is added
     useEffect(() => {
         if (jobs.length > 0) openQueue();
     }, [jobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const hasCompleted = jobs.some(j => j.status === 'done' || j.status === 'error');
 
     return (
         <aside className={`job-queue${isOpen ? ' open' : ''}`}>
@@ -51,47 +49,66 @@ export default function JobQueue() {
                         <p>No jobs yet</p>
                     </div>
                 ) : (
-                    jobs.map(job => (
-                        <div key={job.id} className={`jq-item ${job.status}`}>
-                            <div className="jq-item-top">
-                                <div className="jq-item-label">
-                                    {statusIcon(job.status)}
-                                    <span className="jq-name">{OP_NAMES[job.operation] ?? job.operation}</span>
-                                </div>
-                                {/* <button className="btn btn-ghost jq-remove" onClick={() => removeJob(job.id)}>
-                                    <Trash2 size={12} />
-                                </button> */}
-                            </div>
+                    jobs.map(job => {
+                        const isClickable = job.status === 'done' && job.outputPath;
+                        const onOpen = () => window.ffmcp?.showInFolder(job.outputPath);
+                        const commonClass = `jq-item ${job.status}${isClickable ? ' jq-item--clickable' : ''}`;
 
-                            {job.status === 'running' && (
-                                <div className="jq-progress">
-                                    <div className="progress-track">
-                                        <div className="progress-fill" style={{ width: `${job.progress}%` }} />
+                        const inner = (
+                            <>
+                                <div className="jq-item-top">
+                                    <div className="jq-item-label">
+                                        {statusIcon(job.status)}
+                                        <span className="jq-name">{OP_NAMES[job.operation] ?? job.operation}</span>
                                     </div>
-                                    <span className="jq-percent">{job.progress}%</span>
                                 </div>
-                            )}
 
-                            {job.status === 'error' && (
-                                <p className="jq-error">{job.error}</p>
-                            )}
+                                {job.status === 'running' && (
+                                    <div className="jq-progress">
+                                        <div className="progress-track">
+                                            <div className="progress-fill" style={{ width: `${job.progress}%` }} />
+                                        </div>
+                                        <span className="jq-percent">{job.progress}%</span>
+                                    </div>
+                                )}
 
-                            {job.status === 'done' && job.outputPath && (
-                                <div className='jq-item-bottom'>
-                                    <p className="jq-file">{job.filePath?.split('/').pop()}</p>
-                                    <button
-                                        className="jq-open-btn"
-                                        onClick={() => window.ffmcp?.showInFolder(job.outputPath)}
-                                    >
-                                        <FolderOpen size={12} />
-                                    </button>
-                                </div>
-                            )}
+                                {job.status === 'error' && (
+                                    <p className="jq-error">{job.error}</p>
+                                )}
 
+                                {job.status === 'done' && job.outputPath && (
+                                    <div className="jq-item-bottom">
+                                        <p className="jq-file" title={job.filePath?.split('/').pop()}>
+                                            {job.filePath?.split('/').pop()}
+                                        </p>
+                                        <div className="jq-open-cue" aria-hidden>
+                                            <FolderOpen className="jq-open-cue-icon" size={20} strokeWidth={2} />
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        );
 
+                        if (isClickable) {
+                            return (
+                                <button
+                                    key={job.id}
+                                    type="button"
+                                    className={commonClass}
+                                    onClick={onOpen}
+                                    aria-label="Show output file in folder"
+                                >
+                                    {inner}
+                                </button>
+                            );
+                        }
 
-                        </div>
-                    ))
+                        return (
+                            <div key={job.id} className={commonClass}>
+                                {inner}
+                            </div>
+                        );
+                    })
                 )}
             </div>
         </aside>
