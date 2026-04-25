@@ -30,7 +30,10 @@ export default function Manual() {
     // Tab-specific state
     const [outputFormat, setOutputFormat] = useState('mp4');
     const [audioFormat, setAudioFormat] = useState('mp3');
-    const [quality, setQuality] = useState(70); // percent slider
+    const [quality, setQuality] = useState(70); // percent slider (CRF mode)
+    const [compressMode, setCompressMode] = useState('crf'); // 'crf' | 'bitrate' | 'filesize'
+    const [bitrateMbps, setBitrateMbps] = useState(5);       // for 'bitrate' mode
+    const [targetSizeMB, setTargetSizeMB] = useState(25);    // for 'filesize' mode
     const [startTime, setStartTime] = useState('00:00:00');
     const [endTime, setEndTime] = useState('00:00:30');
     const [trimStartSec, setTrimStartSec] = useState(0);
@@ -99,18 +102,40 @@ export default function Manual() {
         }
         setRunning(true);
 
+        const compressLabel = compressMode === 'bitrate'
+            ? `Compress @ ${bitrateMbps} Mbps`
+            : compressMode === 'filesize'
+                ? `Compress to ${targetSizeMB} MB`
+                : `Compress (${quality}% quality)`;
+
         const opLabels = {
             convert: `Convert → ${outputFormat.toUpperCase()}`,
-            compress: `Compress (${quality}% quality)`,
+            compress: compressLabel,
             extractAudio: `Extract Audio → ${audioFormat.toUpperCase()}`,
             trim: `Trim ${startTime} → ${endTime}`,
             resize: `Resize ${resizeW}×${resizeH}`,
             thumbnail: `Thumbnail at ${thumbTs}`,
         };
 
+        const compressOptions = (() => {
+            const base = { inputPath: file };
+            if (compressMode === 'bitrate') {
+                return { ...base, qualityMode: 'bitrate', bitrateKbps: Math.round(bitrateMbps * 1000) };
+            }
+            if (compressMode === 'filesize') {
+                return {
+                    ...base,
+                    qualityMode: 'filesize',
+                    targetSizeMB,
+                    durationSec: videoDuration || undefined,
+                };
+            }
+            return { ...base, qualityMode: 'crf', quality: percentToCrf(quality) };
+        })();
+
         const opOptions = {
             convert: { inputPath: file, outputFormat },
-            compress: { inputPath: file, quality: percentToCrf(quality) },
+            compress: compressOptions,
             extractAudio: { inputPath: file, audioFormat },
             trim: { inputPath: file, startTime, endTime },
             resize: { inputPath: file, width: resizeW, height: resizeH },
@@ -207,21 +232,119 @@ export default function Manual() {
 
                             {activeTab === 'compress' && (
                                 <div className="field-group">
-                                    <div className="slider-header">
-                                        <label className="label">Quality</label>
-                                        <span className="slider-value">{quality}%</span>
+                                    <label className="label">Compression Mode</label>
+                                    <div className="tab-bar">
+                                        {[
+                                            { id: 'crf', label: 'Quality' },
+                                            { id: 'bitrate', label: 'Bitrate' },
+                                            { id: 'filesize', label: 'Target Size' },
+                                        ].map(({ id, label }) => (
+                                            <button
+                                                key={id}
+                                                className={`tab-btn${compressMode === id ? ' active' : ''}`}
+                                                onClick={() => setCompressMode(id)}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
                                     </div>
-                                    <input
-                                        type="range"
-                                        min={10} max={100}
-                                        value={quality}
-                                        onChange={e => setQuality(+e.target.value)}
-                                    />
-                                    <div className="slider-hints">
-                                        <span>Smaller file</span>
-                                        <span>Higher quality</span>
-                                    </div>
-                                    <p className="field-note">CRF {percentToCrf(quality)} · {quality >= 80 ? 'Visually lossless' : quality >= 60 ? 'Good balance' : quality >= 40 ? 'Compressed' : 'Highly compressed'}</p>
+
+                                    {compressMode === 'crf' && (
+                                        <div className="field-group" style={{ marginTop: 12 }}>
+                                            <div className="slider-header">
+                                                <label className="label">Quality</label>
+                                                <span className="slider-value">{quality}%</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min={10} max={100}
+                                                value={quality}
+                                                onChange={e => setQuality(+e.target.value)}
+                                            />
+                                            <div className="slider-hints">
+                                                <span>Smaller file</span>
+                                                <span>Higher quality</span>
+                                            </div>
+                                            <p className="field-note">
+                                                CRF {percentToCrf(quality)} · {quality >= 80 ? 'Visually lossless' : quality >= 60 ? 'Good balance' : quality >= 40 ? 'Compressed' : 'Highly compressed'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {compressMode === 'bitrate' && (
+                                        <div className="field-group" style={{ marginTop: 12 }}>
+                                            <div className="slider-header">
+                                                <label className="label">Video Bitrate</label>
+                                                <span className="slider-value" style={{ fontSize: 22 }}>{bitrateMbps.toFixed(1)} Mbps</span>
+                                            </div>
+                                            <input
+                                                className="input"
+                                                type="number"
+                                                min={0.1} max={50} step={0.1}
+                                                value={bitrateMbps}
+                                                onChange={e => setBitrateMbps(Math.max(0.1, Math.min(50, parseFloat(e.target.value) || 0.1)))}
+                                            />
+                                            <input
+                                                type="range"
+                                                min={0.5} max={50} step={0.1}
+                                                value={bitrateMbps}
+                                                onChange={e => setBitrateMbps(parseFloat(e.target.value))}
+                                            />
+                                            <div className="slider-hints">
+                                                <span>0.5 Mbps</span>
+                                                <span>10 Mbps</span>
+                                                <span>25 Mbps</span>
+                                                <span>50 Mbps</span>
+                                            </div>
+                                            <p className="field-note">
+                                                {videoDuration
+                                                    ? `Estimated output size: ~${((bitrateMbps + 0.128) * videoDuration / 8).toFixed(1)} MB`
+                                                    : 'Add a file to see estimated size'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {compressMode === 'filesize' && (
+                                        <div className="field-group" style={{ marginTop: 12 }}>
+                                            <div className="slider-header">
+                                                <label className="label">Target File Size</label>
+                                                <span className="slider-value" style={{ fontSize: 22 }}>{targetSizeMB} MB</span>
+                                            </div>
+                                            <input
+                                                className="input"
+                                                type="number"
+                                                min={1} max={2000} step={1}
+                                                value={targetSizeMB}
+                                                onChange={e => setTargetSizeMB(Math.max(1, Math.min(2000, parseInt(e.target.value, 10) || 1)))}
+                                            />
+                                            <input
+                                                type="range"
+                                                min={1} max={500} step={1}
+                                                value={Math.min(targetSizeMB, 500)}
+                                                onChange={e => setTargetSizeMB(+e.target.value)}
+                                            />
+                                            <div className="slider-hints">
+                                                <span>WhatsApp 16</span>
+                                                <span>Discord 25</span>
+                                                <span>Email 100</span>
+                                                <span>500 MB</span>
+                                            </div>
+                                            {videoDuration ? (() => {
+                                                const totalKbps = (targetSizeMB * 8 * 1024 * 0.95) / videoDuration;
+                                                const videoKbps = Math.max(50, Math.floor(totalKbps - 128));
+                                                const tooSmall = videoKbps <= 100;
+                                                return (
+                                                    <p className="field-note" style={tooSmall ? { color: '#B42318' } : undefined}>
+                                                        {tooSmall
+                                                            ? `Target too small for ${secToHms(videoDuration)} of video — output will be very low quality`
+                                                            : `Will encode at ~${(videoKbps / 1000).toFixed(1)} Mbps video + 128 kbps audio (over ${secToHms(videoDuration)})`}
+                                                    </p>
+                                                );
+                                            })() : (
+                                                <p className="field-note">Add a file to see encoding estimate</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

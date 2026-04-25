@@ -174,7 +174,10 @@ export default function AI() {
     const suggestions = [
         'Convert this video to MP4',
         'Extract audio as MP3',
-        'Compress to 50% quality',
+        'Compress to fit in 25 MB for Discord',
+        'Compress for WhatsApp (under 16 MB)',
+        'Compress at 5 Mbps bitrate',
+        'High quality compression',
         'Trim first 30 seconds',
         'Resize to 1280×720',
         'Extract thumbnail at 5 seconds',

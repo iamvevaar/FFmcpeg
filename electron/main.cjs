@@ -198,7 +198,15 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
   "description": "brief human-readable description of what will happen",
   "options": {
     // for convert: { "outputFormat": "mp4" }
-    // for compress: { "quality": 28 } (CRF value 18=high quality, 51=lowest)
+    //
+    // for compress: choose ONE of three quality modes:
+    //   1) Quality (CRF) — best for "high quality / good quality / small file":
+    //      { "qualityMode": "crf", "quality": 28 }   // 18=high, 51=lowest
+    //   2) Target bitrate — best for "at X Mbps / X kbps bitrate":
+    //      { "qualityMode": "bitrate", "bitrateKbps": 5000 }   // kbps
+    //   3) Target file size — best for "fit in X MB / under X MB / for Discord/WhatsApp":
+    //      { "qualityMode": "filesize", "targetSizeMB": 25 }
+    //
     // for extractAudio: { "audioFormat": "mp3" }
     // for trim: { "startTime": "00:00:10", "endTime": "00:01:00" }
     // for resize: { "width": 1280, "height": 720 }
@@ -206,7 +214,16 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
   }
 }
 
-Parse the user's intent carefully. For "compress by 50%" use CRF around 32. For "high quality" use CRF 18-22. For "small file" use CRF 35-40.`
+Parse the user's intent carefully.
+Compress hints:
+- "compress by 50%" / "50% quality"  → qualityMode=crf, quality≈32
+- "high quality" / "lossless-ish"     → qualityMode=crf, quality 18-22
+- "small file" / "very compressed"    → qualityMode=crf, quality 35-40
+- "fit in 25 MB" / "under 16 MB"      → qualityMode=filesize, targetSizeMB=<the number>
+- "for Discord"                       → qualityMode=filesize, targetSizeMB=25
+- "for WhatsApp"                      → qualityMode=filesize, targetSizeMB=16
+- "at 5 Mbps" / "5000 kbps"           → qualityMode=bitrate, bitrateKbps=<computed in kbps>
+- If user says only "compress" without specifics, default to qualityMode=crf, quality=28.`
             }]
           }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 500 }
