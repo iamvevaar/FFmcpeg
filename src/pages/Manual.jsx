@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap, Globe } from 'lucide-react';
+import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap, Globe, Crop } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import TimelinePreview from '../components/TimelinePreview.jsx';
 import useJobStore from '../stores/useJobStore.js';
@@ -12,6 +12,7 @@ const TABS = [
     { id: 'extractAudio', label: 'Audio', icon: FileAudio },
     { id: 'trim', label: 'Trim', icon: Scissors },
     { id: 'resize', label: 'Resize', icon: Maximize2 },
+    { id: 'transform', label: 'Transform', icon: Crop },
     { id: 'thumbnail', label: 'Thumbnail', icon: Image },
 ];
 
@@ -92,6 +93,16 @@ export default function Manual() {
     const [outputFps, setOutputFps] = useState('source');
     const [thumbTs, setThumbTs] = useState('00:00:05');
     const [thumbSec, setThumbSec] = useState(5);
+
+    const [transformRotate, setTransformRotate] = useState(0);
+    const [transformFlipH, setTransformFlipH] = useState(false);
+    const [transformFlipV, setTransformFlipV] = useState(false);
+    const [cropEnabled, setCropEnabled] = useState(false);
+    const [cropX, setCropX] = useState(0);
+    const [cropY, setCropY] = useState(0);
+    const [cropW, setCropW] = useState(0);
+    const [cropH, setCropH] = useState(0);
+    const [transformError, setTransformError] = useState(false);
 
     const { addJob, updateJob } = useJobStore();
     const dropzoneRef = useRef();
@@ -252,6 +263,25 @@ export default function Manual() {
             setTimeout(() => setFileError(false), 600);
             return;
         }
+
+        if (activeTab === 'transform') {
+            const hasR = (transformRotate % 360) !== 0;
+            const hasF = transformFlipH || transformFlipV;
+            const hasC = cropEnabled && cropW > 0 && cropH > 0;
+            if (!hasR && !hasF && !hasC) {
+                setTransformError(true);
+                setTimeout(() => setTransformError(false), 4000);
+                return;
+            }
+            if (hasC && sourceWidth && sourceHeight) {
+                if (cropX < 0 || cropY < 0 || cropX + cropW > sourceWidth || cropY + cropH > sourceHeight) {
+                    setTransformError(true);
+                    setTimeout(() => setTransformError(false), 4000);
+                    return;
+                }
+            }
+        }
+
         setRunning(true);
 
         const compressLabel = (() => {
@@ -278,12 +308,22 @@ export default function Manual() {
             ? 'Convert → MP4 (web-optimized)'
             : `Convert → ${outputFormat.toUpperCase()}`;
 
+        const transformLabel = (() => {
+            const p = ['Transform'];
+            if ((transformRotate % 360) !== 0) p.push(`${transformRotate}°`);
+            if (transformFlipH) p.push('flip H');
+            if (transformFlipV) p.push('flip V');
+            if (cropEnabled && cropW > 0 && cropH > 0) p.push(`crop ${cropW}×${cropH}`);
+            return p.join(' · ');
+        })();
+
         const opLabels = {
             convert: convertLabel,
             compress: compressLabel,
             extractAudio: `Extract Audio → ${audioFormat.toUpperCase()}`,
             trim: `Trim ${startTime} → ${endTime}`,
             resize: resizeLabel,
+            transform: transformLabel,
             thumbnail: `Thumbnail at ${thumbTs}`,
         };
 
@@ -310,6 +350,16 @@ export default function Manual() {
             extractAudio: { inputPath: file, audioFormat },
             trim: { inputPath: file, startTime, endTime },
             resize: { inputPath: file, width: resizeFinal.w, height: resizeFinal.h, ...(outputFps !== 'source' ? { outputFps } : {}) },
+            transform: {
+                inputPath: file,
+                rotate: transformRotate,
+                flipH: transformFlipH,
+                flipV: transformFlipV,
+                cropW: cropEnabled ? cropW : 0,
+                cropH: cropEnabled ? cropH : 0,
+                cropX: cropEnabled ? cropX : 0,
+                cropY: cropEnabled ? cropY : 0,
+            },
             thumbnail: { inputPath: file, timestamp: thumbTs },
         };
 
@@ -873,6 +923,117 @@ export default function Manual() {
                                                 ? 'Keeps the file’s frame rate when loaded.'
                                                 : `Output ${outputFps} fps.`)}
                                     </p>
+                                </div>
+                            )}
+
+                            {activeTab === 'transform' && (
+                                <div className="field-group">
+                                    {transformError && (
+                                        <p className="field-note transform-error">
+                                            Pick rotation, a flip, and/or a valid crop (width &amp; height). Crop must sit inside the source frame.
+                                        </p>
+                                    )}
+                                    <label className="label">Rotate (clockwise)</label>
+                                    <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
+                                        {[0, 90, 180, 270].map((deg) => (
+                                            <button
+                                                key={deg}
+                                                type="button"
+                                                className={`tab-btn${transformRotate === deg ? ' active' : ''}`}
+                                                onClick={() => setTransformRotate(deg)}
+                                            >
+                                                {deg === 0 ? 'None' : `${deg}°`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <label className="label" style={{ marginTop: 14 }}>Flip</label>
+                                    <div className="tab-bar">
+                                        <button
+                                            type="button"
+                                            className={`tab-btn${transformFlipH ? ' active' : ''}`}
+                                            onClick={() => setTransformFlipH(v => !v)}
+                                        >
+                                            Horizontal
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`tab-btn${transformFlipV ? ' active' : ''}`}
+                                            onClick={() => setTransformFlipV(v => !v)}
+                                        >
+                                            Vertical
+                                        </button>
+                                    </div>
+                                    <label className="label" style={{ marginTop: 14 }}>Crop (pixels)</label>
+                                    <button
+                                        type="button"
+                                        className={`tab-btn${cropEnabled ? ' active' : ''}`}
+                                        style={{ width: '100%', justifyContent: 'center' }}
+                                        onClick={() => {
+                                            if (!cropEnabled && sourceWidth && sourceHeight) {
+                                                setCropX(0);
+                                                setCropY(0);
+                                                setCropW(sourceWidth);
+                                                setCropH(sourceHeight);
+                                            }
+                                            setCropEnabled(c => !c);
+                                        }}
+                                    >
+                                        {cropEnabled ? 'Crop on · edit region below' : 'Enable crop (optional)'}
+                                    </button>
+                                    <p className="field-note" style={{ marginTop: 6 }}>From top-left; must fit inside the source size when a file is probed.</p>
+                                    {cropEnabled && (
+                                        <div className="field-row" style={{ marginTop: 12 }}>
+                                            <div className="field-group">
+                                                <label className="label">Left (X)</label>
+                                                <input
+                                                    className="input"
+                                                    type="number"
+                                                    min={0}
+                                                    max={sourceWidth || 8000}
+                                                    value={cropX}
+                                                    onChange={e => setCropX(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                                />
+                                            </div>
+                                            <div className="field-group">
+                                                <label className="label">Top (Y)</label>
+                                                <input
+                                                    className="input"
+                                                    type="number"
+                                                    min={0}
+                                                    max={sourceHeight || 8000}
+                                                    value={cropY}
+                                                    onChange={e => setCropY(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {cropEnabled && (
+                                        <div className="field-row">
+                                            <div className="field-group">
+                                                <label className="label">Width</label>
+                                                <input
+                                                    className="input"
+                                                    type="number"
+                                                    min={2}
+                                                    max={sourceWidth || 8000}
+                                                    value={cropW}
+                                                    onChange={e => setCropW(Math.max(2, parseInt(e.target.value, 10) || 2))}
+                                                />
+                                            </div>
+                                            <div className="field-group">
+                                                <label className="label">Height</label>
+                                                <input
+                                                    className="input"
+                                                    type="number"
+                                                    min={2}
+                                                    max={sourceHeight || 8000}
+                                                    value={cropH}
+                                                    onChange={e => setCropH(Math.max(2, parseInt(e.target.value, 10) || 2))}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <p className="field-note">Re-encodes with H.264; audio is copied. WebM sources are saved as MP4.</p>
                                 </div>
                             )}
 

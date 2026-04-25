@@ -227,7 +227,7 @@ File: "${filePath || 'not specified'}"
 
 Return ONLY a valid JSON object (no markdown, no explanation) with this structure:
 {
-  "operation": one of "convert" | "compress" | "extractAudio" | "trim" | "resize" | "watermark" | "thumbnail",
+  "operation": one of "convert" | "compress" | "extractAudio" | "trim" | "resize" | "transform" | "watermark" | "thumbnail",
   "description": "brief human-readable description of what will happen",
   "options": {
     // for convert: { "outputFormat": "mp4" | "mkv" | "webm", "webOptimized": true }
@@ -252,6 +252,11 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
     //
     // for extractAudio: { "audioFormat": "mp3" }
     // for trim: { "startTime": "00:00:10", "endTime": "00:01:00" }
+    // for transform: {
+    //   "rotate": 0 | 90 | 180 | 270,   // degrees clockwise; 0 = no rotation
+    //   "flipH": true, "flipV": true,  // optional horizontal / vertical flips
+    //   "cropW": 0, "cropH": 0, "cropX": 0, "cropY": 0
+    // }   // crop in pixels; use cropW=0 and cropH=0 to mean no crop. At least one of rotate, flip, or non-zero crop must be set.
     // for resize: { "width": 1280, "height": 720 }
     //   Common presets (assume 16:9 landscape unless user mentions vertical/portrait):
     //     "4K"     → width=3840, height=2160
@@ -302,6 +307,13 @@ Convert hints:
 - "mp4" / "convert to MP4"             → outputFormat=mp4 (omit webOptimized or true for -movflags +faststart)
 - "for YouTube" / "streaming" / "progressive" → outputFormat=mp4, webOptimized=true
 - "raw mp4" / "no fast start"          → outputFormat=mp4, webOptimized=false
+
+Transform hints:
+- "rotate 90" / "turn sideways"     → transform, rotate=90
+- "rotate 180" / "upside down"     → transform, rotate=180
+- "flip horizontally" / "mirror"  → transform, flipH=true
+- "flip vertical"                   → transform, flipV=true
+- "crop to 1280x720" (numeric box)  → transform, cropW=1280, cropH=720, cropX, cropY as needed
 
 Resize hints:
 - "make it 720p" / "downscale to 720p" → resize, width=1280, height=720

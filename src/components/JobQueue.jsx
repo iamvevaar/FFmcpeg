@@ -16,6 +16,7 @@ const OP_NAMES = {
     extractAudio: 'Audio Extraction',
     trim: 'Trimming',
     resize: 'Resizing',
+    transform: 'Transform',
     thumbnail: 'Thumbnail',
 };
 

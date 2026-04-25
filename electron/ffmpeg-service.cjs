@@ -140,6 +140,33 @@ function appendOutputFps(outputOptions, modeNote, outputFps) {
   return `${modeNote} · ${r} fps`;
 }
 
+/**
+ * Build -vf for crop / rotate (° CW) / flips. Re-encodes to H.264 + copy audio.
+ * rotate: 0 | 90 | 180 | 270
+ * 90° CW = transpose=1, 180 = transpose=1,transpose=1, 270° CW = transpose=2 (90° CCW)
+ */
+function buildTransformVf(options) {
+  const parts = [];
+  const w = options.cropW;
+  const h = options.cropH;
+  if (w > 0 && h > 0) {
+    const cw = Math.max(2, Math.floor(Number(w) || 0));
+    const ch = Math.max(2, Math.floor(Number(h) || 0));
+    const cx = Math.max(0, Math.floor(Number(options.cropX) || 0));
+    const cy = Math.max(0, Math.floor(Number(options.cropY) || 0));
+    parts.push(`crop=${cw}:${ch}:${cx}:${cy}`);
+  }
+  const r = (Number(options.rotate) || 0) % 360;
+  if (r === 90) parts.push('transpose=1');
+  else if (r === 180) parts.push('transpose=1,transpose=1');
+  else if (r === 270) parts.push('transpose=2');
+  if (options.flipH) parts.push('hflip');
+  if (options.flipV) parts.push('vflip');
+  if (parts.length === 0) return null;
+  parts.push('format=yuv420p');
+  return parts.join(',');
+}
+
 // Probe video duration in seconds via ffprobe. Used when target-file-size
 // mode is invoked but the caller didn't pre-pass the duration.
 function probeDuration(ffprobePath, file) {
@@ -350,6 +377,29 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, avai
         .output(outputFile);
       if (fpsOpt.length) cmd = cmd.outputOptions(fpsOpt);
       cmd = cmd
+        .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
+        .on('end', () => onComplete({ success: true, outputPath: outputFile }))
+        .on('error', err => onError(err.message));
+      break;
+    }
+
+    case 'transform': {
+      const inExt = path.extname(input).slice(1) || 'mp4';
+      // H.264 in WebM/OGV is invalid — fall back to MP4.
+      const outExt = (inExt === 'webm' || inExt === 'ogg' || inExt === 'ogv') ? 'mp4' : inExt;
+      outputFile = getOutputPath(input, outputFolder, 'transformed', outExt);
+      const vf = buildTransformVf(options);
+      if (!vf) {
+        return onError('Choose at least one: rotation, horizontal flip, vertical flip, or crop (width & height).');
+      }
+      const note = `transform: ${vf.replace(/,format=yuv420p$/, '')}`;
+      const tOpts = ['-crf 18', '-preset', 'fast', '-c:a', 'copy', '-vf', vf];
+      if (outExt === 'mp4' || outExt === 'm4v' || outExt === 'mov') tOpts.push('-movflags', '+faststart');
+      cmd = ffmpeg(input)
+        .output(outputFile)
+        .videoCodec('libx264')
+        .outputOptions(tOpts)
+        .on('start', () => onProgress({ type: 'start', note }))
         .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
         .on('end', () => onComplete({ success: true, outputPath: outputFile }))
         .on('error', err => onError(err.message));

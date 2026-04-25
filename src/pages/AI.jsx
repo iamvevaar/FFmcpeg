@@ -183,6 +183,8 @@ export default function AI() {
         'Downscale to 720p',
         'Compress this to 24 fps',
         'Resize for Instagram Reels (1080×1920)',
+        'Rotate the video 90 degrees clockwise',
+        'Flip the video horizontally',
         'Extract thumbnail at 5 seconds',
     ];
 
