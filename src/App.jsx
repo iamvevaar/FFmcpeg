@@ -1,6 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
-import { Settings as SettingsIcon, ListOrdered } from 'lucide-react';
+import { Settings as SettingsIcon, ListOrdered, Zap } from 'lucide-react';
 import Home from './pages/Home.jsx';
 import Manual from './pages/Manual.jsx';
 import AI from './pages/AI.jsx';
@@ -19,18 +19,21 @@ function AppLayout() {
     <div className="app-shell">
       <div className="main-content">
         <div className="app-topbar">
-          <div className="topbar-drag-fill" />
-          {/* Queue toggle */}
+          <div className="titlebar-drag" />
           <button
             type="button"
-            className={`topbar-btn${isSettingsPage ? ' active' : ''}`}
-            onClick={() => navigate('/settings')}
-            aria-label="Open settings"
-            title="Settings"
+            className="app-topbar-brand"
+            onClick={() => navigate('/')}
+            aria-label="FFMCPeg home"
           >
-            <SettingsIcon size={16} />
-            <span>Settings</span>
+            <span className="app-topbar-brand-mark">
+              <Zap size={16} fill="currentColor" />
+            </span>
+            <span>FFMCPeg</span>
           </button>
+
+          <div className="topbar-drag-fill" />
+
           <button
             type="button"
             className={`topbar-btn topbar-queue-btn${isOpen ? ' active' : ''}`}
@@ -44,8 +47,16 @@ function AppLayout() {
               <span className="queue-badge">{activeJobs}</span>
             )}
           </button>
-          {/* Settings */}
-
+          <button
+            type="button"
+            className={`topbar-btn${isSettingsPage ? ' active' : ''}`}
+            onClick={() => navigate('/settings')}
+            aria-label="Open settings"
+            title="Settings"
+          >
+            <SettingsIcon size={16} />
+            <span>Settings</span>
+          </button>
         </div>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -64,7 +75,6 @@ export default function App() {
   const { updateJob } = useJobStore();
 
   useEffect(() => {
-    // Subscribe to FFmpeg progress events from main process
     const unsubscribe = window.ffmcp?.onProgress((data) => {
       const { jobId, type, percent, timemark } = data;
       if (type === 'progress') {

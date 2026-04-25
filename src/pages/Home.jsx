@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useMemo, useState, useEffect } from 'react';
-import { Sliders, Wand2, Zap, ChevronRight, KeyRound } from 'lucide-react';
+import { Sliders, Wand2, ArrowRight, KeyRound, Check } from 'lucide-react';
 import './Home.css';
 
 const modes = [
@@ -8,21 +8,21 @@ const modes = [
         key: 'manual',
         to: '/manual',
         icon: Sliders,
-        title: 'Manual Mode',
-        subtitle: 'Full control with a guided UI',
-        description: 'Convert, compress, trim, resize, and extract audio with intuitive controls. Perfect for precise tasks.',
-        color: '#6366f1',
+        eyebrow: 'Manual mode',
+        title: 'Precision controls,\nzero terminal.',
+        description: 'Convert, compress, trim, resize, and extract audio with intuitive controls. Built for fine-tuned, repeatable tasks.',
         features: ['Format Conversion', 'Compression', 'Trim & Cut', 'Audio Extraction', 'Resize & Scale'],
+        cta: 'Open Manual Mode',
     },
     {
         key: 'ai',
         to: '/ai',
         icon: Wand2,
-        title: 'AI Mode',
-        subtitle: 'Just describe what you want',
-        description: 'Type a natural language prompt and let AI figure out the best FFmpeg command for you.',
-        color: '#8b5cf6',
+        eyebrow: 'AI mode',
+        title: 'Just describe\nwhat you want.',
+        description: 'Type a natural language prompt and let AI translate it into the right FFmpeg command — preview, then run.',
         features: ['Natural Language Prompts', 'Smart Parameter Detection', 'Command Preview', 'One-click Execute'],
+        cta: 'Open AI Mode',
     },
 ];
 
@@ -43,68 +43,76 @@ export default function Home() {
 
     return (
         <div className="home-page">
-            <div className="home-bg" />
+            <section className="home-hero animate-fade">
+                <span className="home-eyebrow">Media processing, made simple</span>
+                <h1 className="home-title">
+                    Studio-grade FFmpeg,<br />
+                    <span className="home-title-accent">without the command line.</span>
+                </h1>
+                <p className="home-subtitle">
+                    Convert, compress, trim, resize, and process media files with a clean,
+                    modern interface — powered by FFmpeg.
+                </p>
 
-            <header className="home-header animate-fade">
-                <div className="home-logo">
-                    <Zap size={24} fill="currentColor" />
+                <div className="home-tabs" role="tablist">
+                    {modes.map(mode => (
+                        <button
+                            key={mode.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeMode === mode.key}
+                            className={`home-tab${activeMode === mode.key ? ' active' : ''}`}
+                            onClick={() => setActiveMode(mode.key)}
+                        >
+                            <mode.icon size={16} />
+                            <span>{mode.eyebrow}</span>
+                        </button>
+                    ))}
                 </div>
-                <h1 className="home-title">Welcome to FFMCPeg</h1>
-                <p className="home-subtitle">Professional media processing, powered by FFmpeg — no terminal required.</p>
-            </header>
+            </section>
 
+            <section className="home-feature animate-fade" key={selectedMode.key}>
+                <div className="home-feature-grid">
+                    <div className="home-feature-content">
+                        <span className="home-feature-eyebrow">{selectedMode.eyebrow}</span>
+                        <h2 className="home-feature-title">
+                            {selectedMode.title.split('\n').map((line, i) => (
+                                <span key={i}>{line}{i === 0 && <br />}</span>
+                            ))}
+                        </h2>
+                        <p className="home-feature-desc">{selectedMode.description}</p>
 
-            <div className="home-tabs animate-fade">
-                {modes.map(mode => (
-                    <button
-                        key={mode.key}
-                        type="button"
-                        className={`home-tab${activeMode === mode.key ? ' active' : ''}`}
-                        onClick={() => setActiveMode(mode.key)}
-                    >
-                        <mode.icon size={16} />
-                        <span>{mode.title}</span>
-                    </button>
-                ))}
-            </div>
-
-            <div className="home-cards">
-                <div
-                    key={selectedMode.key}
-                    className="mode-card glass glass-hover animate-fade"
-                    style={{ '--card-accent': selectedMode.color }}
-                    onClick={() => navigate(selectedMode.to)}
-                >
-                    <div
-                        className="mode-card-icon"
-                        style={{ background: `${selectedMode.color}1a`, border: `1px solid ${selectedMode.color}33` }}
-                    >
-                        <selectedMode.icon size={28} style={{ color: selectedMode.color }} />
+                        <button
+                            type="button"
+                            className="btn btn-primary home-feature-cta"
+                            onClick={() => navigate(selectedMode.to)}
+                        >
+                            {selectedMode.cta}
+                            <ArrowRight size={16} />
+                        </button>
                     </div>
-                    <div className="mode-card-body">
-                        <p className="mode-subtitle">{selectedMode.subtitle}</p>
-                        <h2 className="mode-title">{selectedMode.title}</h2>
-                        <p className="mode-desc">{selectedMode.description}</p>
-                        <ul className="mode-features">
+
+                    <div className="home-feature-visual">
+                        <div className="home-feature-icon-frame">
+                            <selectedMode.icon size={72} strokeWidth={1.4} />
+                        </div>
+                        <ul className="home-feature-list">
                             {selectedMode.features.map(feature => (
                                 <li key={feature}>
-                                    <span className="feature-dot" style={{ background: selectedMode.color }} />
+                                    <span className="home-feature-check">
+                                        <Check size={12} strokeWidth={3} />
+                                    </span>
                                     {feature}
                                 </li>
                             ))}
                         </ul>
                     </div>
-                    <div className="mode-card-cta">
-                        <span>Open {selectedMode.title}</span>
-                        <ChevronRight size={16} />
-                    </div>
                 </div>
-            </div>
+            </section>
 
-            {/* API key banner — shown only when AI tab is active */}
             {activeMode === 'ai' && !hasApiKey && (
-                <div className="api-key-banner animate-fade" style={{ width: '100%', maxWidth: 760 }}>
-                    <KeyRound size={16} className="api-key-banner-icon" />
+                <div className="api-key-banner animate-fade">
+                    <KeyRound size={18} className="api-key-banner-icon" />
                     <p className="api-key-banner-text">
                         <strong>No API key configured.</strong>{' '}
                         Add your Gemini API key to use AI Mode.
@@ -113,7 +121,7 @@ export default function Home() {
                         className="api-key-banner-btn"
                         onClick={() => navigate('/settings')}
                     >
-                        Open Settings →
+                        Open Settings
                     </button>
                 </div>
             )}

@@ -41,7 +41,7 @@ export default function DropZone({ file, onFile, onClear, error, dropzoneRef }) 
                     <p className="dz-file-name">{name}</p>
                     <p className="dz-file-path">{file}</p>
                 </div>
-                <button className="dz-clear btn btn-ghost" onClick={onClear}>
+                <button className="dz-clear" onClick={onClear} aria-label="Clear file">
                     <X size={16} />
                 </button>
             </div>

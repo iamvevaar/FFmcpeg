@@ -1,18 +1,18 @@
 .manual-page {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 32px;
+  padding: var(--space-12) var(--space-11) var(--space-13);
   display: flex;
   flex-direction: column;
-  align-items: center;  /* centres page-container horizontally */
-  gap: 0;
+  align-items: center;
+  background: var(--color-bg);
 }
 
+/* ── Shared page header (Manual / Settings / AI) ── */
 .page-header {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
+  gap: var(--space-6);
 }
 
 .page-back-btn {
@@ -21,40 +21,41 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--color-bg-soft);
+  color: var(--text-primary);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: background var(--transition);
 }
 
 .page-back-btn:hover {
-  color: var(--accent-2);
-  border-color: rgba(139, 92, 246, 0.4);
-  background: rgba(139, 92, 246, 0.1);
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+  background: var(--color-border);
 }
 
-
 .page-title {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 36px;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+  font-feature-settings: "ss01", "ss02";
+  line-height: 1.2;
 }
 
 .page-sub {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: var(--space-3);
+  line-height: 1.4;
 }
 
+/* ── Manual layout ────────────────────────── */
 .manual-body {
   display: flex;
-  gap: 24px;
+  gap: var(--space-9);
   flex: 1;
   width: 100%;
 }
@@ -64,88 +65,110 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-9);
   max-width: none;
 }
 
+.manual-left section { width: 100%; }
+
+/* ── Pill tab bar (formats / operations) ── */
 .tab-bar {
   display: flex;
-  gap: 6px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .tab-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-7);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: var(--color-bg-soft);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
+  letter-spacing: -0.14px;
   cursor: pointer;
-  transition: all var(--transition);
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
-.tab-btn:hover { background: var(--color-surface-hover); color: var(--text-primary); }
+.tab-btn:hover { background: var(--color-border); color: var(--text-primary); }
+
 .tab-btn.active {
-  background: rgba(139,92,246,0.12);
-  color: var(--accent-2);
-  border-color: rgba(139,92,246,0.3);
+  background: var(--meta-blue);
+  color: #fff;
+  border-color: transparent;
 }
 
+/* ── Operation panel ──────────────────────── */
 .op-panel {
-  background: var(--color-surface);
+  background: #fff;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: var(--radius-card);
+  padding: var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
 }
 
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .field-row {
   display: flex;
-  gap: 16px;
+  gap: var(--space-9);
+  flex-wrap: wrap;
 }
 
-.field-row .field-group { flex: 1; }
+.field-row .field-group { flex: 1; min-width: 240px; }
 
+/* ── Slider headers / values ──────────────── */
 .slider-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
 }
 
 .slider-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--accent-2);
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--meta-blue);
+  letter-spacing: -0.02em;
 }
 
 .slider-hints {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: var(--space-3);
 }
 
 .field-note {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: var(--space-3);
 }
 
+/* ── Primary run button ───────────────────── */
 .run-btn {
-  width: 100%;
-  justify-content: center;
-  padding: 14px;
+  align-self: flex-start;
+  padding: var(--space-6) var(--space-12);
   font-size: 15px;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .manual-page { padding: var(--space-10) var(--space-9); }
+  .page-title { font-size: 28px; }
+  .page-sub { font-size: 16px; }
+  .op-panel { padding: var(--space-9); }
+  .field-row { gap: var(--space-7); }
 }
