@@ -247,6 +247,14 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
     // for extractAudio: { "audioFormat": "mp3" }
     // for trim: { "startTime": "00:00:10", "endTime": "00:01:00" }
     // for resize: { "width": 1280, "height": 720 }
+    //   Common presets (assume 16:9 landscape unless user mentions vertical/portrait):
+    //     "4K"     → width=3840, height=2160
+    //     "1440p"  → width=2560, height=1440
+    //     "1080p"  → width=1920, height=1080
+    //     "720p"   → width=1280, height=720
+    //     "480p"   → width=854,  height=480
+    //   For vertical/portrait (Reels, TikTok, Stories), swap width/height:
+    //     "1080p vertical" → width=1080, height=1920
     // for thumbnail: { "timestamp": "00:00:05" }
   }
 }
@@ -267,7 +275,14 @@ Codec hints:
 - "use AV1"                            → codec="av1"
 - "use VP9" / "for the web"            → codec="vp9"
 - "use my GPU" / "hardware accel"      → useHardware=true
-- Default codec is h264 if unspecified.`
+- Default codec is h264 if unspecified.
+
+Resize hints:
+- "make it 720p" / "downscale to 720p" → resize, width=1280, height=720
+- "convert to 1080p"                    → resize, width=1920, height=1080
+- "4K" / "upscale to 4K"                → resize, width=3840, height=2160
+- "for Instagram Reels (vertical 1080p)" → resize, width=1080, height=1920
+- "shrink to half"                      → use Convert/Compress; resize requires explicit dims.`
             }]
           }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 500 }

@@ -44,6 +44,11 @@ export default function Manual() {
     const [videoDuration, setVideoDuration] = useState(null); // seconds from ffprobe
     const [resizeW, setResizeW] = useState(1280);
     const [resizeH, setResizeH] = useState(720);
+    const [resolutionPreset, setResolutionPreset] = useState('1080p'); // '4k' | '1440p' | '1080p' | '720p' | '480p' | 'custom'
+    const [dontUpscale, setDontUpscale] = useState(true);
+    const [lockAspect, setLockAspect] = useState(true);
+    const [sourceWidth, setSourceWidth] = useState(null);
+    const [sourceHeight, setSourceHeight] = useState(null);
     const [thumbTs, setThumbTs] = useState('00:00:05');
     const [thumbSec, setThumbSec] = useState(5);
 
@@ -84,6 +89,55 @@ export default function Manual() {
         { id: 'vp9',  label: 'VP9',     sub: 'Web · WebM' },
     ]), []);
 
+    // ── Resolution ladder ──────────────────────────────────────
+    // Each preset = the SHORTER dimension's size in pixels. Landscape 1080p
+    // → 1920×1080, portrait 1080p → 1080×1920. This matches how creators
+    // think about resolution regardless of orientation.
+    const RESOLUTION_PRESETS = useMemo(() => ([
+        { id: '4k',     label: '4K',     short: 2160, sub: '3840 × 2160' },
+        { id: '1440p',  label: '1440p',  short: 1440, sub: '2560 × 1440' },
+        { id: '1080p',  label: '1080p',  short: 1080, sub: '1920 × 1080' },
+        { id: '720p',   label: '720p',   short: 720,  sub: '1280 × 720' },
+        { id: '480p',   label: '480p',   short: 480,  sub: '854 × 480' },
+        { id: 'custom', label: 'Custom', short: null, sub: 'Set dimensions' },
+    ]), []);
+
+    // Compute target dims for a preset, respecting source aspect & orientation.
+    // Always returns the *true* preset size (may be larger than source — i.e.
+    // an upscale). The decision to actually upscale is made later by the
+    // caller using the `isUpscale` flag + the `dontUpscale` user toggle.
+    // Dims are rounded to even pixels (required by most h264/h265 encoders).
+    const computeTargetSize = useCallback((srcW, srcH, shortLimit) => {
+        if (!shortLimit) return null;
+        if (!srcW || !srcH) {
+            return { w: Math.round(shortLimit * 16 / 9 / 2) * 2, h: shortLimit, isUpscale: false };
+        }
+        const isPortrait = srcH > srcW;
+        const sourceShort = isPortrait ? srcW : srcH;
+        const scale = shortLimit / sourceShort; // > 1 → upscale, < 1 → downscale
+        return {
+            w: Math.max(2, Math.round(srcW * scale / 2) * 2),
+            h: Math.max(2, Math.round(srcH * scale / 2) * 2),
+            isUpscale: shortLimit > sourceShort,
+        };
+    }, []);
+
+    // The dims that will actually be sent to ffmpeg, factoring in dontUpscale.
+    const effectiveResize = useMemo(() => {
+        if (resolutionPreset === 'custom') {
+            const isUpscale = !!(sourceWidth && sourceHeight && (resizeW > sourceWidth || resizeH > sourceHeight));
+            return { w: resizeW, h: resizeH, isUpscale };
+        }
+        const preset = RESOLUTION_PRESETS.find(p => p.id === resolutionPreset);
+        if (!preset) return null;
+        const target = computeTargetSize(sourceWidth, sourceHeight, preset.short);
+        if (!target) return null;
+        if (dontUpscale && target.isUpscale && sourceWidth && sourceHeight) {
+            return { w: sourceWidth, h: sourceHeight, skipped: true, isUpscale: false };
+        }
+        return { w: target.w, h: target.h, isUpscale: target.isUpscale };
+    }, [resolutionPreset, resizeW, resizeH, sourceWidth, sourceHeight, dontUpscale, computeTargetSize, RESOLUTION_PRESETS]);
+
     // ── Trim helpers ─────────────────────────────────────────────
     const secToHms = (s) => {
         const h = Math.floor(s / 3600);
@@ -110,23 +164,40 @@ export default function Manual() {
         ];
     }, [TRIM_MAX]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Probe file duration whenever a new file is picked
+    // Probe file duration + dimensions whenever a new file is picked.
+    // Dimensions feed the resolution-ladder UI so it can compute target sizes
+    // that respect the source's aspect ratio and orientation (portrait / landscape).
     const handleFileSelect = (path) => {
         setFile(path);
         setFileError(false);
-        if (!path) { setVideoDuration(null); return; }
+        if (!path) {
+            setVideoDuration(null);
+            setSourceWidth(null);
+            setSourceHeight(null);
+            return;
+        }
         window.ffmcp?.getMediaInfo(path).then(info => {
             const dur = Math.floor(parseFloat(info?.format?.duration) || 0);
             if (dur > 0) {
                 setVideoDuration(dur);
-                // Reset trim points sensibly for the new file
                 const defaultEnd = Math.min(30, dur);
                 setTrimStartSec(0);
                 setTrimEndSec(defaultEnd);
                 setStartTime(secToHms(0));
                 setEndTime(secToHms(defaultEnd));
             }
-        }).catch(() => setVideoDuration(null));
+            const videoStream = (info?.streams || []).find(s => s.codec_type === 'video');
+            const w = videoStream?.width;
+            const h = videoStream?.height;
+            if (w && h) {
+                setSourceWidth(w);
+                setSourceHeight(h);
+            }
+        }).catch(() => {
+            setVideoDuration(null);
+            setSourceWidth(null);
+            setSourceHeight(null);
+        });
     };
 
     const handleRun = async () => {
@@ -144,12 +215,17 @@ export default function Manual() {
                 ? `Compress to ${targetSizeMB} MB`
                 : `Compress (${quality}% quality)`;
 
+        const resizeFinal = effectiveResize || { w: resizeW, h: resizeH };
+        const resizeLabel = resolutionPreset === 'custom'
+            ? `Resize ${resizeFinal.w}×${resizeFinal.h}`
+            : `Resize → ${resolutionPreset.toUpperCase()} (${resizeFinal.w}×${resizeFinal.h})`;
+
         const opLabels = {
             convert: `Convert → ${outputFormat.toUpperCase()}`,
             compress: compressLabel,
             extractAudio: `Extract Audio → ${audioFormat.toUpperCase()}`,
             trim: `Trim ${startTime} → ${endTime}`,
-            resize: `Resize ${resizeW}×${resizeH}`,
+            resize: resizeLabel,
             thumbnail: `Thumbnail at ${thumbTs}`,
         };
 
@@ -174,7 +250,7 @@ export default function Manual() {
             compress: compressOptions,
             extractAudio: { inputPath: file, audioFormat },
             trim: { inputPath: file, startTime, endTime },
-            resize: { inputPath: file, width: resizeW, height: resizeH },
+            resize: { inputPath: file, width: resizeFinal.w, height: resizeFinal.h },
             thumbnail: { inputPath: file, timestamp: thumbTs },
         };
 
@@ -511,60 +587,155 @@ export default function Manual() {
                             )}
 
                             {activeTab === 'resize' && (
-                                <div className="field-row">
-                                    {/* Width */}
-                                    <div className="field-group">
-                                        <div className="slider-header">
-                                            <label className="label">Width (px)</label>
-                                            <span className="slider-value">{resizeW}</span>
-                                        </div>
-                                        <input
-                                            className="input"
-                                            type="number"
-                                            min={64} max={7680} step={2}
-                                            value={resizeW}
-                                            onChange={e => setResizeW(Math.min(7680, Math.max(64, +e.target.value || 64)))}
-                                        />
-                                        <input
-                                            type="range"
-                                            min={64} max={7680} step={2}
-                                            value={resizeW}
-                                            onChange={e => setResizeW(+e.target.value)}
-                                        />
-                                        <div className="slider-hints">
-                                            <span>144p (64)</span>
-                                            <span>HD (1280)</span>
-                                            <span>4K (3840)</span>
-                                            <span>8K (7680)</span>
-                                        </div>
+                                <div className="field-group">
+                                    <label className="label">Resolution</label>
+                                    <div className="codec-grid resolution-grid">
+                                        {RESOLUTION_PRESETS.map(p => (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                className={`codec-card${resolutionPreset === p.id ? ' active' : ''}`}
+                                                onClick={() => setResolutionPreset(p.id)}
+                                            >
+                                                <span className="codec-card-label">{p.label}</span>
+                                                <span className="codec-card-sub">{p.sub}</span>
+                                            </button>
+                                        ))}
                                     </div>
 
-                                    {/* Height */}
-                                    <div className="field-group">
-                                        <div className="slider-header">
-                                            <label className="label">Height (px)</label>
-                                            <span className="slider-value">{resizeH}</span>
+                                    {/* Source info + computed output */}
+                                    {sourceWidth && sourceHeight ? (
+                                        <div className="resize-info">
+                                            <div className="resize-info-row">
+                                                <span className="resize-info-label">Source</span>
+                                                <span className="resize-info-value">
+                                                    {sourceWidth} × {sourceHeight}
+                                                    {sourceHeight > sourceWidth ? ' · Portrait' : sourceHeight === sourceWidth ? ' · Square' : ' · Landscape'}
+                                                </span>
+                                            </div>
+                                            {effectiveResize && (
+                                                <div className="resize-info-row">
+                                                    <span className="resize-info-label">Output</span>
+                                                    <span className="resize-info-value resize-info-output">
+                                                        {effectiveResize.w} × {effectiveResize.h}
+                                                        {effectiveResize.skipped && ' · Source kept (no upscale)'}
+                                                        {effectiveResize.isUpscale && !effectiveResize.skipped && ' · Upscaling'}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
-                                        <input
-                                            className="input"
-                                            type="number"
-                                            min={64} max={4320} step={2}
-                                            value={resizeH}
-                                            onChange={e => setResizeH(Math.min(4320, Math.max(64, +e.target.value || 64)))}
-                                        />
-                                        <input
-                                            type="range"
-                                            min={64} max={4320} step={2}
-                                            value={resizeH}
-                                            onChange={e => setResizeH(+e.target.value)}
-                                        />
-                                        <div className="slider-hints">
-                                            <span>144p (64)</span>
-                                            <span>720p (720)</span>
-                                            <span>2K (2160)</span>
-                                            <span>8K (4320)</span>
-                                        </div>
-                                    </div>
+                                    ) : (
+                                        <p className="field-note">Add a file to see exact output dimensions for the chosen preset.</p>
+                                    )}
+
+                                    {/* Don't upscale toggle (only meaningful for non-Custom) */}
+                                    {resolutionPreset !== 'custom' && (
+                                        <button
+                                            type="button"
+                                            className={`hw-toggle${dontUpscale ? ' active' : ''}`}
+                                            onClick={() => setDontUpscale(v => !v)}
+                                        >
+                                            <span className="hw-toggle-icon">
+                                                <Maximize2 size={14} />
+                                            </span>
+                                            <span className="hw-toggle-text">
+                                                <strong>Don't upscale source</strong>
+                                                <span>Keep source size if it's already smaller than the chosen preset</span>
+                                            </span>
+                                            <span className={`hw-toggle-switch${dontUpscale ? ' on' : ''}`}>
+                                                <span className="hw-toggle-knob" />
+                                            </span>
+                                        </button>
+                                    )}
+
+                                    {/* Custom W × H controls */}
+                                    {resolutionPreset === 'custom' && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className={`hw-toggle${lockAspect ? ' active' : ''}`}
+                                                onClick={() => setLockAspect(v => !v)}
+                                                style={{ marginTop: 8 }}
+                                            >
+                                                <span className="hw-toggle-icon">
+                                                    <Maximize2 size={14} />
+                                                </span>
+                                                <span className="hw-toggle-text">
+                                                    <strong>Lock aspect ratio</strong>
+                                                    <span>Adjust height automatically when width changes</span>
+                                                </span>
+                                                <span className={`hw-toggle-switch${lockAspect ? ' on' : ''}`}>
+                                                    <span className="hw-toggle-knob" />
+                                                </span>
+                                            </button>
+
+                                            <div className="field-row" style={{ marginTop: 12 }}>
+                                                <div className="field-group">
+                                                    <div className="slider-header">
+                                                        <label className="label">Width (px)</label>
+                                                        <span className="slider-value">{resizeW}</span>
+                                                    </div>
+                                                    <input
+                                                        className="input"
+                                                        type="number"
+                                                        min={64} max={7680} step={2}
+                                                        value={resizeW}
+                                                        onChange={e => {
+                                                            const newW = Math.min(7680, Math.max(64, +e.target.value || 64));
+                                                            setResizeW(newW);
+                                                            if (lockAspect && sourceWidth && sourceHeight) {
+                                                                setResizeH(Math.max(2, Math.round(newW * sourceHeight / sourceWidth / 2) * 2));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="range"
+                                                        min={64} max={7680} step={2}
+                                                        value={resizeW}
+                                                        onChange={e => {
+                                                            const newW = +e.target.value;
+                                                            setResizeW(newW);
+                                                            if (lockAspect && sourceWidth && sourceHeight) {
+                                                                setResizeH(Math.max(2, Math.round(newW * sourceHeight / sourceWidth / 2) * 2));
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                <div className="field-group">
+                                                    <div className="slider-header">
+                                                        <label className="label">Height (px)</label>
+                                                        <span className="slider-value">{resizeH}</span>
+                                                    </div>
+                                                    <input
+                                                        className="input"
+                                                        type="number"
+                                                        min={64} max={4320} step={2}
+                                                        value={resizeH}
+                                                        onChange={e => {
+                                                            const newH = Math.min(4320, Math.max(64, +e.target.value || 64));
+                                                            setResizeH(newH);
+                                                            if (lockAspect && sourceWidth && sourceHeight) {
+                                                                setResizeW(Math.max(2, Math.round(newH * sourceWidth / sourceHeight / 2) * 2));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="range"
+                                                        min={64} max={4320} step={2}
+                                                        value={resizeH}
+                                                        onChange={e => {
+                                                            const newH = +e.target.value;
+                                                            setResizeH(newH);
+                                                            if (lockAspect && sourceWidth && sourceHeight) {
+                                                                setResizeW(Math.max(2, Math.round(newH * sourceWidth / sourceHeight / 2) * 2));
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 

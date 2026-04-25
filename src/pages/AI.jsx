@@ -179,7 +179,8 @@ export default function AI() {
         'Compress with H.265 using my GPU',
         'Re-encode to AV1 for smallest size',
         'Trim first 30 seconds',
-        'Resize to 1280×720',
+        'Downscale to 720p',
+        'Resize for Instagram Reels (1080×1920)',
         'Extract thumbnail at 5 seconds',
     ];
 
