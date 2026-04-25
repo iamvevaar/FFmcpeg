@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
+import TimelinePreview from '../components/TimelinePreview.jsx';
 import useJobStore from '../stores/useJobStore.js';
 import './Manual.css';
 
@@ -260,12 +261,14 @@ export default function Manual() {
                                                 if (!isNaN(s)) setTrimStartSec(Math.min(s, trimEndSec - 1));
                                             }}
                                         />
-                                        <input
-                                            type="range"
-                                            min={0} max={TRIM_MAX} step={1}
+                                        <TimelinePreview
+                                            file={file}
+                                            min={0}
+                                            max={TRIM_MAX}
+                                            step={1}
                                             value={trimStartSec}
-                                            onChange={e => {
-                                                const s = Math.min(+e.target.value, trimEndSec - 1);
+                                            onChange={(v) => {
+                                                const s = Math.min(v, trimEndSec - 1);
                                                 setTrimStartSec(s);
                                                 setStartTime(secToHms(s));
                                             }}
@@ -292,12 +295,14 @@ export default function Manual() {
                                                 if (!isNaN(s)) setTrimEndSec(Math.max(s, trimStartSec + 1));
                                             }}
                                         />
-                                        <input
-                                            type="range"
-                                            min={0} max={TRIM_MAX} step={1}
+                                        <TimelinePreview
+                                            file={file}
+                                            min={0}
+                                            max={TRIM_MAX}
+                                            step={1}
                                             value={trimEndSec}
-                                            onChange={e => {
-                                                const s = Math.max(+e.target.value, trimStartSec + 1);
+                                            onChange={(v) => {
+                                                const s = Math.max(v, trimStartSec + 1);
                                                 setTrimEndSec(s);
                                                 setEndTime(secToHms(s));
                                             }}
@@ -385,14 +390,13 @@ export default function Manual() {
                                             if (!isNaN(s)) setThumbSec(Math.min(s, videoDuration ?? 3600));
                                         }}
                                     />
-                                    <input
-                                        type="range"
+                                    <TimelinePreview
+                                        file={file}
                                         min={0}
                                         max={videoDuration ?? 3600}
                                         step={1}
                                         value={thumbSec}
-                                        onChange={e => {
-                                            const s = +e.target.value;
+                                        onChange={(s) => {
                                             setThumbSec(s);
                                             setThumbTs(secToHms(s));
                                         }}
@@ -401,7 +405,7 @@ export default function Manual() {
                                         {trimHints().map((h, i) => <span key={i}>{h}</span>)}
                                     </div>
                                     {!videoDuration && (
-                                        <p className="field-note">💡 Select a file to get the exact video duration range</p>
+                                        <p className="field-note">Select a file to get the exact video duration range</p>
                                     )}
                                 </div>
                             )}

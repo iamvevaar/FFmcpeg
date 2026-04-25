@@ -227,6 +227,41 @@ Parse the user's intent carefully. For "compress by 50%" use CRF around 32. For 
   }
 });
 
+// Extract a single frame at a given timestamp as a JPEG data URL
+// Used for YouTube-style timeline scrubbing previews.
+ipcMain.handle('ffmpeg:extractFrame', async (_, { filePath, timestampSec, width = 240 }) => {
+  return new Promise((resolve, reject) => {
+    if (!filePath) return reject(new Error('filePath required'));
+    const ts = Math.max(0, Number(timestampSec) || 0);
+    const args = [
+      // Fast seek before -i for speed; accurate enough for previews
+      '-ss', String(ts),
+      '-i', filePath,
+      '-frames:v', '1',
+      '-vf', `scale=${width}:-2`,
+      '-f', 'image2',
+      '-vcodec', 'mjpeg',
+      '-q:v', '5',
+      '-loglevel', 'error',
+      'pipe:1',
+    ];
+    const proc = spawn(ffmpegPath, args);
+    const chunks = [];
+    let stderrBuf = '';
+    proc.stdout.on('data', d => chunks.push(d));
+    proc.stderr.on('data', d => { stderrBuf += d; });
+    proc.on('error', reject);
+    proc.on('close', code => {
+      if (code === 0 && chunks.length > 0) {
+        const buf = Buffer.concat(chunks);
+        resolve(`data:image/jpeg;base64,${buf.toString('base64')}`);
+      } else {
+        reject(new Error(stderrBuf.trim() || 'ffmpeg frame extraction failed'));
+      }
+    });
+  });
+});
+
 // Get media file info via ffprobe
 ipcMain.handle('ffprobe:info', async (_, filePath) => {
   return new Promise((resolve, reject) => {

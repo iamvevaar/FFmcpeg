@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('ffmcp', {
   // Media info
   getMediaInfo: (filePath) => ipcRenderer.invoke('ffprobe:info', filePath),
 
+  // Extract a single frame as a JPEG data URL (for timeline scrub previews)
+  extractFrame: (filePath, timestampSec, width) =>
+    ipcRenderer.invoke('ffmpeg:extractFrame', { filePath, timestampSec, width }),
+
   // AI mode
   sendPrompt: (prompt, filePath) =>
     ipcRenderer.invoke('ai:prompt', { prompt, filePath }),

@@ -1,0 +1,110 @@
+.tp-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 0;
+}
+
+.tp-track {
+  position: relative;
+  width: 100%;
+}
+
+.tp-track input[type="range"] {
+  width: 100%;
+}
+
+/* ── Floating preview bubble ─────────────── */
+.tp-bubble {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 5;
+}
+
+.tp-bubble.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tp-bubble-inner {
+  position: relative;
+  width: 220px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-bg-soft, #F1F4F7);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.tp-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tp-img-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary, #5D6C7B);
+  background: var(--color-bg-soft, #F1F4F7);
+  text-align: center;
+  padding: 8px;
+}
+
+.tp-img-empty span {
+  font-size: 10px;
+  line-height: 1.2;
+  max-width: 180px;
+}
+
+.tp-img-error {
+  color: #B42318;
+  background: #FEF3F2;
+}
+
+.tp-img-loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--meta-blue, #0064E0);
+  transform-origin: left;
+  transform: scaleX(0);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.tp-img-loader.active {
+  opacity: 1;
+  animation: tp-load 900ms ease-in-out infinite;
+}
+
+@keyframes tp-load {
+  0% { transform: scaleX(0); }
+  60% { transform: scaleX(0.85); }
+  100% { transform: scaleX(1); }
+}
+
+.tp-time {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.14px;
+  color: #fff;
+  background: rgba(28, 30, 33, 0.92);
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-variant-numeric: tabular-nums;
+}
