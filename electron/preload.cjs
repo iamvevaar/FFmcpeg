@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('ffmcp', {
     return () => ipcRenderer.removeListener('ffmpeg:progress', handler);
   },
   getFFmpegPath: () => ipcRenderer.invoke('ffmpeg:getPath'),
+  listEncoders: () => ipcRenderer.invoke('ffmpeg:listEncoders'),
 
   // Media info
   getMediaInfo: (filePath) => ipcRenderer.invoke('ffprobe:info', filePath),

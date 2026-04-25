@@ -11,6 +11,83 @@ function getOutputPath(inputFile, outputFolder, suffix, ext) {
   return path.join(outputFolder, filename);
 }
 
+// ─── Codec resolution ─────────────────────────────────────────────
+// Friendly codec ids the UI sends ('h264', 'h265', 'av1', 'vp9') get mapped
+// here to the actual ffmpeg encoder name, optionally swapped for a
+// hardware-accelerated variant when both available and requested.
+//
+// Order within each list = preference (try first match).
+const codecMap = {
+  h264: { sw: ['libx264'],     hw: ['h264_videotoolbox', 'h264_nvenc', 'h264_qsv', 'h264_amf'] },
+  h265: { sw: ['libx265'],     hw: ['hevc_videotoolbox', 'hevc_nvenc', 'hevc_qsv', 'hevc_amf'] },
+  av1:  { sw: ['libsvtav1', 'libaom-av1'], hw: ['av1_nvenc', 'av1_qsv', 'av1_amf'] },
+  vp9:  { sw: ['libvpx-vp9'],  hw: [] },
+};
+
+function resolveEncoder(codecId, useHardware, availableEncoders) {
+  const entry = codecMap[codecId] || codecMap.h264;
+  const list = useHardware ? [...entry.hw, ...entry.sw] : [...entry.sw, ...entry.hw];
+  for (const enc of list) {
+    if (!availableEncoders || availableEncoders.length === 0 || availableEncoders.includes(enc)) {
+      return enc;
+    }
+  }
+  return entry.sw[0]; // fallback
+}
+
+// Map the user's "quality %" slider (10-100) onto the right CLI flag for
+// the chosen encoder. Higher % = better quality for ALL codecs in the UI.
+function buildQualityFlags(encoder, qualityPercent) {
+  const pct = Math.max(10, Math.min(100, Number(qualityPercent) || 70));
+  const t = (pct - 10) / 90; // 0..1, higher = better
+
+  // Apple VideoToolbox: -q:v 1..100, higher = better quality. Usable ~50-90.
+  if (encoder.endsWith('_videotoolbox')) {
+    const q = Math.round(50 + t * 40);
+    return [`-q:v ${q}`];
+  }
+  // NVENC: -cq 0..51, lower = better. Usable ~17-32.
+  if (encoder.endsWith('_nvenc')) {
+    const cq = Math.round(32 - t * 15);
+    return [`-rc vbr`, `-cq ${cq}`, `-b:v 0`];
+  }
+  // Intel QSV: -global_quality 1..51, lower = better. Usable ~17-32.
+  if (encoder.endsWith('_qsv')) {
+    const q = Math.round(32 - t * 15);
+    return [`-global_quality ${q}`];
+  }
+  // AMD AMF: -quality + -qp_i/qp_p; simple bitrate fallback.
+  if (encoder.endsWith('_amf')) {
+    const qp = Math.round(32 - t * 15);
+    return [`-rc cqp`, `-qp_i ${qp}`, `-qp_p ${qp}`, `-qp_b ${qp}`];
+  }
+  // SVT-AV1: -crf 1..63, lower = better. Usable ~23-50.
+  if (encoder === 'libsvtav1' || encoder === 'libaom-av1') {
+    const crf = Math.round(50 - t * 27);
+    return [`-crf ${crf}`];
+  }
+  // VP9: -crf 0..63, lower = better. Needs -b:v 0 for true CQP mode.
+  if (encoder === 'libvpx-vp9') {
+    const crf = Math.round(50 - t * 27);
+    return [`-crf ${crf}`, `-b:v 0`];
+  }
+  // Default x264 / x265: -crf 0..51, lower = better. Usable ~18-32.
+  const crf = Math.round(51 - t * 33);
+  return [`-crf ${crf}`];
+}
+
+// Pick a sensible output container for the chosen codec. VP9 lives in webm.
+function containerForCodec(codecId, inputExt) {
+  if (codecId === 'vp9') return 'webm';
+  return inputExt || 'mp4';
+}
+
+// Convert a CRF value (legacy AI-mode contract) back to a quality % so the
+// generic per-encoder mapper can take over.
+function crfToPercent(crf) {
+  return Math.round(100 - ((crf - 18) / (51 - 18)) * 100);
+}
+
 // Probe video duration in seconds via ffprobe. Used when target-file-size
 // mode is invoked but the caller didn't pre-pass the duration.
 function probeDuration(ffprobePath, file) {
@@ -36,7 +113,7 @@ function probeDuration(ffprobePath, file) {
   });
 }
 
-function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, outputFolder, onProgress, onComplete, onError }) {
+function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, availableEncoders, outputFolder, onProgress, onComplete, onError }) {
   // Configure ffmpeg paths
   ffmpeg.setFfmpegPath(ffmpegPath);
   ffmpeg.setFfprobePath(ffprobePath);
@@ -64,15 +141,23 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, outp
     }
 
     case 'compress': {
-      const ext = path.extname(input).slice(1) || 'mp4';
-      outputFile = getOutputPath(input, outputFolder, 'compressed', ext);
+      const inputExt = path.extname(input).slice(1) || 'mp4';
+      const codecId = options.codec || 'h264';
+      const useHardware = !!options.useHardware;
+      const encoder = resolveEncoder(codecId, useHardware, availableEncoders);
+      const outputExt = containerForCodec(codecId, inputExt);
+      outputFile = getOutputPath(input, outputFolder, 'compressed', outputExt);
+
       const qualityMode = options.qualityMode || 'crf';
       const audioBitrateKbps = 128;
 
-      // Build the command once we know the (possibly probed) duration.
+      // Hardware encoders generally don't honour x264's -preset values.
+      const isHardware = /(_videotoolbox|_nvenc|_qsv|_amf|_mf)$/.test(encoder);
+      const speedFlag = isHardware ? [] : ['-preset medium'];
+
       const buildAndRun = (durationSec) => {
-        const outputOptions = ['-preset medium'];
-        let modeNote = '';
+        const outputOptions = [...speedFlag];
+        let modeNote = `${codecId} (${encoder})`;
 
         if (qualityMode === 'bitrate') {
           const kbps = Math.max(50, Math.floor(options.bitrateKbps || 2000));
@@ -81,13 +166,12 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, outp
             `-maxrate ${Math.floor(kbps * 1.5)}k`,
             `-bufsize ${kbps * 2}k`,
           );
-          modeNote = `bitrate=${kbps}k`;
+          modeNote += ` · bitrate=${kbps}k`;
         } else if (qualityMode === 'filesize') {
           const targetMB = Math.max(1, Number(options.targetSizeMB) || 25);
           if (!durationSec || durationSec <= 0) {
             return onError('Could not determine video duration for target file size mode');
           }
-          // Reserve ~5% headroom for container overhead, then subtract audio bitrate.
           const overheadFactor = 0.95;
           const totalKbps = (targetMB * 8 * 1024 * overheadFactor) / durationSec;
           const videoKbps = Math.max(50, Math.floor(totalKbps - audioBitrateKbps));
@@ -96,18 +180,30 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, outp
             `-maxrate ${Math.floor(videoKbps * 1.4)}k`,
             `-bufsize ${videoKbps * 2}k`,
           );
-          modeNote = `target=${targetMB}MB → ${videoKbps}k video`;
+          modeNote += ` · target=${targetMB}MB → ${videoKbps}k video`;
         } else {
-          const crf = options.quality !== undefined ? options.quality : 28;
-          outputOptions.push(`-crf ${crf}`);
-          modeNote = `crf=${crf}`;
+          // Quality (CRF / per-encoder equivalent)
+          let qualityPercent;
+          if (options.qualityPercent !== undefined) {
+            qualityPercent = options.qualityPercent;
+          } else if (options.quality !== undefined) {
+            // Legacy AI-mode contract: { quality: 28 } meaning x264 CRF.
+            qualityPercent = crfToPercent(options.quality);
+          } else {
+            qualityPercent = 70;
+          }
+          outputOptions.push(...buildQualityFlags(encoder, qualityPercent));
+          modeNote += ` · quality=${qualityPercent}%`;
         }
+
+        // Pick an audio codec compatible with the container.
+        const audioCodec = outputExt === 'webm' ? 'libopus' : 'aac';
 
         const localCmd = ffmpeg(input)
           .output(outputFile)
-          .videoCodec('libx264')
+          .videoCodec(encoder)
           .outputOptions(outputOptions)
-          .audioCodec('aac')
+          .audioCodec(audioCodec)
           .audioBitrate(`${audioBitrateKbps}k`)
           .on('start', () => onProgress({ type: 'start', note: modeNote }))
           .on('progress', p => onProgress({

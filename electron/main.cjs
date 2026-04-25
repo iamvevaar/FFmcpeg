@@ -63,6 +63,30 @@ async function initStore() {
 
 let mainWindow;
 
+// Cache of ffmpeg-detected encoders, populated once at app startup.
+// Used to advertise hardware-accelerated codecs only when they actually exist.
+let availableEncoders = [];
+
+function detectEncoders() {
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ['-hide_banner', '-encoders']);
+    let out = '';
+    proc.stdout.on('data', d => { out += d; });
+    proc.stderr.on('data', d => { out += d; }); // some builds emit on stderr
+    proc.on('error', () => resolve([]));
+    proc.on('close', () => {
+      const encoders = new Set();
+      for (const line of out.split('\n')) {
+        // Lines look like:  " V..... libx264              libx264 H.264 / AVC ..."
+        // First field is flags starting with V (video) / A (audio) / S (subtitle).
+        const m = line.match(/^\s*V[\w.]+\s+(\S+)/);
+        if (m) encoders.add(m[1]);
+      }
+      resolve(Array.from(encoders).sort());
+    });
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -90,6 +114,10 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await initStore();
+  // Detect available video encoders once; the renderer queries this list
+  // to decide which codecs / hardware options to expose in the UI.
+  availableEncoders = await detectEncoders();
+  console.log(`Detected ${availableEncoders.length} video encoders`);
   createWindow();
 
   app.on('activate', () => {
@@ -142,6 +170,10 @@ ipcMain.handle('shell:showItemInFolder', (_, filePath) => {
 // Get ffmpeg path
 ipcMain.handle('ffmpeg:getPath', () => ffmpegPath);
 
+// Return the list of video encoders ffmpeg knows about. Used by the UI to
+// decide whether to show "Hardware acceleration (Apple GPU / NVENC / QSV)".
+ipcMain.handle('ffmpeg:listEncoders', () => availableEncoders);
+
 // ─── FFmpeg Operations ─────────────────────────────────────────────
 
 function sendProgress(jobId, data) {
@@ -160,6 +192,7 @@ ipcMain.handle('ffmpeg:run', async (_, { jobId, operation, options }) => {
         options,
         ffmpegPath,
         ffprobePath,
+        availableEncoders,
         outputFolder: store.get('outputFolder'),
         onProgress: (data) => sendProgress(jobId, data),
         onComplete: (result) => resolve(result),
@@ -199,7 +232,11 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
   "options": {
     // for convert: { "outputFormat": "mp4" }
     //
-    // for compress: choose ONE of three quality modes:
+    // for compress: choose ONE of three quality modes, and OPTIONALLY pick a codec:
+    //   Codec (optional, default "h264"):
+    //     "codec": "h264" | "h265" | "av1" | "vp9"
+    //     "useHardware": true   // optional, true = use Apple/NVIDIA/Intel GPU encoder if available
+    //
     //   1) Quality (CRF) — best for "high quality / good quality / small file":
     //      { "qualityMode": "crf", "quality": 28 }   // 18=high, 51=lowest
     //   2) Target bitrate — best for "at X Mbps / X kbps bitrate":
@@ -223,7 +260,14 @@ Compress hints:
 - "for Discord"                       → qualityMode=filesize, targetSizeMB=25
 - "for WhatsApp"                      → qualityMode=filesize, targetSizeMB=16
 - "at 5 Mbps" / "5000 kbps"           → qualityMode=bitrate, bitrateKbps=<computed in kbps>
-- If user says only "compress" without specifics, default to qualityMode=crf, quality=28.`
+- If user says only "compress" without specifics, default to qualityMode=crf, quality=28.
+
+Codec hints:
+- "use H.265" / "HEVC"                 → codec="h265"
+- "use AV1"                            → codec="av1"
+- "use VP9" / "for the web"            → codec="vp9"
+- "use my GPU" / "hardware accel"      → useHardware=true
+- Default codec is h264 if unspecified.`
             }]
           }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 500 }

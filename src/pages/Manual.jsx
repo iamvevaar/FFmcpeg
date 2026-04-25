@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft } from 'lucide-react';
+import { Play, FileAudio, Scissors, Maximize2, Droplets, Image, ArrowLeft, Zap } from 'lucide-react';
 import DropZone from '../components/DropZone.jsx';
 import TimelinePreview from '../components/TimelinePreview.jsx';
 import useJobStore from '../stores/useJobStore.js';
@@ -34,6 +34,9 @@ export default function Manual() {
     const [compressMode, setCompressMode] = useState('crf'); // 'crf' | 'bitrate' | 'filesize'
     const [bitrateMbps, setBitrateMbps] = useState(5);       // for 'bitrate' mode
     const [targetSizeMB, setTargetSizeMB] = useState(25);    // for 'filesize' mode
+    const [codec, setCodec] = useState('h264');              // 'h264' | 'h265' | 'av1' | 'vp9'
+    const [useHardware, setUseHardware] = useState(false);
+    const [encoders, setEncoders] = useState([]);            // available ffmpeg encoders
     const [startTime, setStartTime] = useState('00:00:00');
     const [endTime, setEndTime] = useState('00:00:30');
     const [trimStartSec, setTrimStartSec] = useState(0);
@@ -47,6 +50,39 @@ export default function Manual() {
     const { addJob, updateJob } = useJobStore();
     const dropzoneRef = useRef();
     const [fileError, setFileError] = useState(false);
+
+    // ── Encoder discovery ────────────────────────────────────────
+    // Ask the main process which ffmpeg encoders exist on this machine
+    // so we can show "Hardware accel (Apple GPU / NVENC / QSV)" only when
+    // it'll actually work.
+    useEffect(() => {
+        window.ffmcp?.listEncoders?.().then(list => setEncoders(list || [])).catch(() => {});
+    }, []);
+
+    const HW_ENCODERS = useMemo(() => ({
+        h264: ['h264_videotoolbox', 'h264_nvenc', 'h264_qsv', 'h264_amf'],
+        h265: ['hevc_videotoolbox', 'hevc_nvenc', 'hevc_qsv', 'hevc_amf'],
+        av1:  ['av1_nvenc', 'av1_qsv', 'av1_amf'],
+        vp9:  [],
+    }), []);
+
+    const hwAvailableFor = (c) => (HW_ENCODERS[c] || []).some(enc => encoders.includes(enc));
+    const hwLabelFor = (c) => {
+        const found = (HW_ENCODERS[c] || []).find(enc => encoders.includes(enc));
+        if (!found) return 'Hardware acceleration';
+        if (found.endsWith('_videotoolbox')) return 'Apple GPU (VideoToolbox)';
+        if (found.endsWith('_nvenc')) return 'NVIDIA GPU (NVENC)';
+        if (found.endsWith('_qsv')) return 'Intel GPU (QSV)';
+        if (found.endsWith('_amf')) return 'AMD GPU (AMF)';
+        return 'Hardware acceleration';
+    };
+
+    const CODECS = useMemo(() => ([
+        { id: 'h264', label: 'H.264',   sub: 'Universal' },
+        { id: 'h265', label: 'H.265',   sub: 'Smaller, modern' },
+        { id: 'av1',  label: 'AV1',     sub: 'Newest, smallest' },
+        { id: 'vp9',  label: 'VP9',     sub: 'Web · WebM' },
+    ]), []);
 
     // ── Trim helpers ─────────────────────────────────────────────
     const secToHms = (s) => {
@@ -118,7 +154,7 @@ export default function Manual() {
         };
 
         const compressOptions = (() => {
-            const base = { inputPath: file };
+            const base = { inputPath: file, codec, useHardware: useHardware && hwAvailableFor(codec) };
             if (compressMode === 'bitrate') {
                 return { ...base, qualityMode: 'bitrate', bitrateKbps: Math.round(bitrateMbps * 1000) };
             }
@@ -130,7 +166,7 @@ export default function Manual() {
                     durationSec: videoDuration || undefined,
                 };
             }
-            return { ...base, qualityMode: 'crf', quality: percentToCrf(quality) };
+            return { ...base, qualityMode: 'crf', qualityPercent: quality };
         })();
 
         const opOptions = {
@@ -232,7 +268,44 @@ export default function Manual() {
 
                             {activeTab === 'compress' && (
                                 <div className="field-group">
-                                    <label className="label">Compression Mode</label>
+                                    <label className="label">Codec</label>
+                                    <div className="codec-grid">
+                                        {CODECS.map(c => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                className={`codec-card${codec === c.id ? ' active' : ''}`}
+                                                onClick={() => {
+                                                    setCodec(c.id);
+                                                    if (!hwAvailableFor(c.id)) setUseHardware(false);
+                                                }}
+                                            >
+                                                <span className="codec-card-label">{c.label}</span>
+                                                <span className="codec-card-sub">{c.sub}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {hwAvailableFor(codec) && (
+                                        <button
+                                            type="button"
+                                            className={`hw-toggle${useHardware ? ' active' : ''}`}
+                                            onClick={() => setUseHardware(v => !v)}
+                                        >
+                                            <span className="hw-toggle-icon">
+                                                <Zap size={14} fill={useHardware ? 'currentColor' : 'none'} />
+                                            </span>
+                                            <span className="hw-toggle-text">
+                                                <strong>{hwLabelFor(codec)}</strong>
+                                                <span>Faster encoding · slightly larger files</span>
+                                            </span>
+                                            <span className={`hw-toggle-switch${useHardware ? ' on' : ''}`}>
+                                                <span className="hw-toggle-knob" />
+                                            </span>
+                                        </button>
+                                    )}
+
+                                    <label className="label" style={{ marginTop: 14 }}>Compression Mode</label>
                                     <div className="tab-bar">
                                         {[
                                             { id: 'crf', label: 'Quality' },
