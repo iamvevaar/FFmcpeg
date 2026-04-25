@@ -1,5 +1,10 @@
 name: Build and Release
 
+# GitHub is moving Actions (checkout, setup-node, etc.) to Node 24 — silence deprecation & stay current
+# https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     tags:
@@ -10,6 +15,8 @@ jobs:
   release:
     runs-on: ${{ matrix.os }}
     strategy:
+      # If one OS fails (e.g. macOS signing), still publish Windows/Linux artifacts
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     permissions:
@@ -22,11 +29,17 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Match package.json version to git tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          npm pkg set "version=$VER"
 
       - name: Build Web App
         run: npm run build:web
@@ -36,6 +49,8 @@ jobs:
         run: npx electron-builder --mac --publish always
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Apple certs in public CI — build unsigned rather than fail signing
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Build & Publish Electron (Windows)
         if: matrix.os == 'windows-latest'
