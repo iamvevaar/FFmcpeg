@@ -67,17 +67,18 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, outp
     case 'trim': {
       const ext = path.extname(input).slice(1) || 'mp4';
       outputFile = getOutputPath(input, outputFolder, 'trimmed', ext);
+      const startSec = timeToSeconds(options.startTime || '00:00:00');
+      const durationSec = options.endTime
+        ? timeToSeconds(options.endTime) - startSec
+        : (options.duration ?? null);
       cmd = ffmpeg(input)
-        .setStartTime(options.startTime || '00:00:00')
-        .setDuration(options.endTime ? undefined : options.duration)
+        .setStartTime(startSec)
         .output(outputFile)
         .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
         .on('end', () => onComplete({ success: true, outputPath: outputFile }))
         .on('error', err => onError(err.message));
-      if (options.endTime) {
-        cmd = cmd.setDuration(
-          timeToSeconds(options.endTime) - timeToSeconds(options.startTime || '00:00:00')
-        );
+      if (durationSec !== null && durationSec > 0) {
+        cmd = cmd.setDuration(durationSec);
       }
       break;
     }
@@ -120,18 +121,16 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, outp
 
     case 'thumbnail': {
       outputFile = getOutputPath(input, outputFolder, 'thumb', 'png');
+      const ts = options.timestamp || '00:00:05';
+      onProgress({ type: 'progress', percent: 30 });
       cmd = ffmpeg(input)
-        .screenshots({
-          timestamps: [options.timestamp || '00:00:05'],
-          filename: path.basename(outputFile),
-          folder: outputFolder,
-        })
+        .seekInput(ts)
+        .frames(1)
+        .output(outputFile)
+        .on('progress', () => onProgress({ type: 'progress', percent: 70 }))
         .on('end', () => onComplete({ success: true, outputPath: outputFile }))
         .on('error', err => onError(err.message));
-      // No progress for screenshots
-      onProgress({ type: 'progress', percent: 50 });
-      cmd.run();
-      return;
+      break;
     }
 
     default:
