@@ -233,6 +233,10 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
     // for convert: { "outputFormat": "mp4" | "mkv" | "webm", "webOptimized": true }
     //   webOptimized: MP4 only — -movflags +faststart. Omit or false = standard MP4. Ignored for mkv/webm.
     //
+    // for compress & resize (re-encode operations only):
+    //   "outputFps": "source" | "23.976" | "24" | "25" | "29.97" | "30" | "50" | "60" | "120"
+    //   Omit or "source" = keep input frame rate. Otherwise output is forced to that fps.
+    //
     // for compress: choose ONE of three quality modes, and OPTIONALLY pick a codec:
     //   Codec (optional, default "h264"):
     //     "codec": "h264" | "h265" | "av1" | "vp9"
@@ -277,6 +281,13 @@ Codec hints:
 - "use VP9" / "for the web"            → codec="vp9"
 - "use my GPU" / "hardware accel"      → useHardware=true
 - Default codec is h264 if unspecified.
+
+Framerate hints (compress / resize only — not convert with stream copy):
+- "24 fps" / "film frame rate"           → outputFps="24"
+- "30 fps" / "YouTube standard"         → outputFps="30"
+- "25 fps" / "PAL"                      → outputFps="25"
+- "60 fps"                              → outputFps="60"
+- "keep original frame rate"            → outputFps="source"
 
 Convert hints:
 - "remux to mkv" / "put in Matroska"     → outputFormat=mkv

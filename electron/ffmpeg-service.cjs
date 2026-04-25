@@ -88,6 +88,15 @@ function crfToPercent(crf) {
   return Math.round(100 - ((crf - 18) / (51 - 18)) * 100);
 }
 
+/** When set (and not 'source'), adds -r for output frame rate (duplicate/drop frames as needed). */
+function appendOutputFps(outputOptions, modeNote, outputFps) {
+  if (!outputFps || outputFps === 'source') return modeNote;
+  const r = parseFloat(String(outputFps));
+  if (!Number.isFinite(r) || r <= 0) return modeNote;
+  outputOptions.push('-r', String(r));
+  return `${modeNote} · ${r} fps`;
+}
+
 // Probe video duration in seconds via ffprobe. Used when target-file-size
 // mode is invoked but the caller didn't pre-pass the duration.
 function probeDuration(ffprobePath, file) {
@@ -219,6 +228,8 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, avai
           modeNote += ` · quality=${qualityPercent}%`;
         }
 
+        modeNote = appendOutputFps(outputOptions, modeNote, options.outputFps);
+
         // Pick an audio codec compatible with the container.
         const audioCodec = outputExt === 'webm' ? 'libopus' : 'aac';
 
@@ -286,9 +297,16 @@ function runOperation({ jobId, operation, options, ffmpegPath, ffprobePath, avai
       const size = options.width && options.height
         ? `${options.width}x${options.height}`
         : options.size || '1280x720';
+      const fpsOpt = [];
+      if (options.outputFps && options.outputFps !== 'source') {
+        const r = parseFloat(String(options.outputFps));
+        if (Number.isFinite(r) && r > 0) fpsOpt.push('-r', String(r));
+      }
       cmd = ffmpeg(input)
         .size(size)
-        .output(outputFile)
+        .output(outputFile);
+      if (fpsOpt.length) cmd = cmd.outputOptions(fpsOpt);
+      cmd = cmd
         .on('progress', p => onProgress({ type: 'progress', percent: Math.round(p.percent || 0), timemark: p.timemark }))
         .on('end', () => onComplete({ success: true, outputPath: outputFile }))
         .on('error', err => onError(err.message));

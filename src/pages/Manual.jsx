@@ -22,6 +22,34 @@ const AUDIO_FORMATS = ['mp3', 'aac', 'wav', 'flac', 'm4a', 'ogg'];
 function crfToPercent(crf) { return Math.round(100 - ((crf - 18) / (51 - 18)) * 100); }
 function percentToCrf(pct) { return Math.round(18 + ((100 - pct) / 100) * (51 - 18)); }
 
+/** ffprobe avg_frame_rate like "30000/1001" → ~29.97 */
+function parseAvgFrameRate(str) {
+    if (!str || str === '0/0') return null;
+    const parts = String(str).split('/');
+    if (parts.length === 2) {
+        const a = parseInt(parts[0], 10);
+        const b = parseInt(parts[1], 10);
+        if (b > 0) {
+            const n = a / b;
+            return Number.isFinite(n) && n > 0.01 ? n : null;
+        }
+    }
+    const f = parseFloat(str);
+    return Number.isFinite(f) && f > 0 ? f : null;
+}
+
+const FPS_OPTIONS = [
+    { value: 'source', label: 'Same as source' },
+    { value: '23.976', label: '23.976 (NTSC film)' },
+    { value: '24', label: '24' },
+    { value: '25', label: '25 (PAL)' },
+    { value: '29.97', label: '29.97 (NTSC)' },
+    { value: '30', label: '30' },
+    { value: '50', label: '50' },
+    { value: '60', label: '60' },
+    { value: '120', label: '120' },
+];
+
 export default function Manual() {
     const navigate = useNavigate();
     const [file, setFile] = useState(null);
@@ -51,6 +79,8 @@ export default function Manual() {
     const [lockAspect, setLockAspect] = useState(true);
     const [sourceWidth, setSourceWidth] = useState(null);
     const [sourceHeight, setSourceHeight] = useState(null);
+    const [sourceFps, setSourceFps] = useState(null);
+    const [outputFps, setOutputFps] = useState('source');
     const [thumbTs, setThumbTs] = useState('00:00:05');
     const [thumbSec, setThumbSec] = useState(5);
 
@@ -176,6 +206,7 @@ export default function Manual() {
             setVideoDuration(null);
             setSourceWidth(null);
             setSourceHeight(null);
+            setSourceFps(null);
             return;
         }
         window.ffmcp?.getMediaInfo(path).then(info => {
@@ -195,10 +226,13 @@ export default function Manual() {
                 setSourceWidth(w);
                 setSourceHeight(h);
             }
+            const fpsN = parseAvgFrameRate(videoStream?.avg_frame_rate) || parseAvgFrameRate(videoStream?.r_frame_rate);
+            setSourceFps(fpsN);
         }).catch(() => {
             setVideoDuration(null);
             setSourceWidth(null);
             setSourceHeight(null);
+            setSourceFps(null);
         });
     };
 
@@ -211,16 +245,24 @@ export default function Manual() {
         }
         setRunning(true);
 
-        const compressLabel = compressMode === 'bitrate'
-            ? `Compress @ ${bitrateMbps} Mbps`
-            : compressMode === 'filesize'
-                ? `Compress to ${targetSizeMB} MB`
-                : `Compress (${quality}% quality)`;
+        const compressLabel = (() => {
+            let t = compressMode === 'bitrate'
+                ? `Compress @ ${bitrateMbps} Mbps`
+                : compressMode === 'filesize'
+                    ? `Compress to ${targetSizeMB} MB`
+                    : `Compress (${quality}% quality)`;
+            if (outputFps !== 'source') t += ` · ${outputFps} fps`;
+            return t;
+        })();
 
         const resizeFinal = effectiveResize || { w: resizeW, h: resizeH };
-        const resizeLabel = resolutionPreset === 'custom'
-            ? `Resize ${resizeFinal.w}×${resizeFinal.h}`
-            : `Resize → ${resolutionPreset.toUpperCase()} (${resizeFinal.w}×${resizeFinal.h})`;
+        const resizeLabel = (() => {
+            const base = resolutionPreset === 'custom'
+                ? `Resize ${resizeFinal.w}×${resizeFinal.h}`
+                : `Resize → ${resolutionPreset.toUpperCase()} (${resizeFinal.w}×${resizeFinal.h})`;
+            if (outputFps !== 'source') return `${base} · ${outputFps} fps`;
+            return base;
+        })();
 
         const convertLabel = outputFormat === 'mp4' && webOptimized
             ? 'Convert → MP4 (web-optimized)'
@@ -237,6 +279,7 @@ export default function Manual() {
 
         const compressOptions = (() => {
             const base = { inputPath: file, codec, useHardware: useHardware && hwAvailableFor(codec) };
+            if (outputFps !== 'source') base.outputFps = outputFps;
             if (compressMode === 'bitrate') {
                 return { ...base, qualityMode: 'bitrate', bitrateKbps: Math.round(bitrateMbps * 1000) };
             }
@@ -256,7 +299,7 @@ export default function Manual() {
             compress: compressOptions,
             extractAudio: { inputPath: file, audioFormat },
             trim: { inputPath: file, startTime, endTime },
-            resize: { inputPath: file, width: resizeFinal.w, height: resizeFinal.h },
+            resize: { inputPath: file, width: resizeFinal.w, height: resizeFinal.h, ...(outputFps !== 'source' ? { outputFps } : {}) },
             thumbnail: { inputPath: file, timestamp: thumbTs },
         };
 
@@ -295,7 +338,13 @@ export default function Manual() {
                             <DropZone
                                 file={file}
                                 onFile={handleFileSelect}
-                                onClear={() => { setFile(null); setVideoDuration(null); }}
+                                onClear={() => {
+                                    setFile(null);
+                                    setVideoDuration(null);
+                                    setSourceWidth(null);
+                                    setSourceHeight(null);
+                                    setSourceFps(null);
+                                }}
                                 error={fileError}
                                 dropzoneRef={dropzoneRef}
                             />
@@ -518,6 +567,25 @@ export default function Manual() {
                                             )}
                                         </div>
                                     )}
+
+                                    <label className="label" style={{ marginTop: 16 }}>Frame rate</label>
+                                    <select
+                                        className="input select"
+                                        value={outputFps}
+                                        onChange={e => setOutputFps(e.target.value)}
+                                        aria-label="Output frame rate"
+                                    >
+                                        {FPS_OPTIONS.map(o => (
+                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                        ))}
+                                    </select>
+                                    <p className="field-note">
+                                        {sourceFps != null
+                                            ? `Source ~${sourceFps < 100 ? sourceFps.toFixed(2) : Math.round(sourceFps)} fps · ${outputFps === 'source' ? 'output matches input' : `output ${outputFps} fps (may duplicate or drop frames)`}.`
+                                            : (outputFps === 'source'
+                                                ? 'Uses the file’s frame rate after a file is loaded.'
+                                                : `Output will be ${outputFps} fps.`)}
+                                    </p>
                                 </div>
                             )}
 
@@ -760,6 +828,25 @@ export default function Manual() {
                                             </div>
                                         </>
                                     )}
+
+                                    <label className="label" style={{ marginTop: 16 }}>Frame rate</label>
+                                    <select
+                                        className="input select"
+                                        value={outputFps}
+                                        onChange={e => setOutputFps(e.target.value)}
+                                        aria-label="Output frame rate for resize"
+                                    >
+                                        {FPS_OPTIONS.map(o => (
+                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                        ))}
+                                    </select>
+                                    <p className="field-note">
+                                        {sourceFps != null
+                                            ? `Source ~${sourceFps < 100 ? sourceFps.toFixed(2) : Math.round(sourceFps)} fps · ${outputFps === 'source' ? 'keeps source timing' : `re-times to ${outputFps} fps`}.`
+                                            : (outputFps === 'source'
+                                                ? 'Keeps the file’s frame rate when loaded.'
+                                                : `Output ${outputFps} fps.`)}
+                                    </p>
                                 </div>
                             )}
 

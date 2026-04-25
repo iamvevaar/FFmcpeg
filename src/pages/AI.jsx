@@ -181,6 +181,7 @@ export default function AI() {
         'Re-encode to AV1 for smallest size',
         'Trim first 30 seconds',
         'Downscale to 720p',
+        'Compress this to 24 fps',
         'Resize for Instagram Reels (1080×1920)',
         'Extract thumbnail at 5 seconds',
     ];
