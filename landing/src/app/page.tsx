@@ -1,5 +1,6 @@
 import { Nav } from '@/components/Nav';
 import { Hero } from '@/components/Hero';
+import { VideoSection } from '@/components/VideoSection';
 import { ValueProps } from '@/components/ValueProps';
 import { AIModeSection } from '@/components/AIModeSection';
 import { ManualModeSection } from '@/components/ManualModeSection';
@@ -16,6 +17,7 @@ export default function Page() {
       <Nav />
       <main>
         <Hero />
+        <VideoSection />
         <ValueProps />
         <AIModeSection />
         <ManualModeSection />

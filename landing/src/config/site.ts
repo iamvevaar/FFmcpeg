@@ -66,6 +66,19 @@ export const siteConfig = {
     secondaryCta: 'See how it works',
   },
 
+  // Maker walkthrough video. Update this block per release if you re-record.
+  video: {
+    id: 'Be9bmZHEjhw',
+    url: 'https://youtu.be/Be9bmZHEjhw',
+    title: 'FFmcpeg walkthrough — AI Mode, Manual Mode, every operation',
+    description:
+      'A guided walkthrough of FFmcpeg by the developer who built it. Covers AI Mode, Manual Mode tabs, every encode operation, HDR handling, and the job queue.',
+    heading: 'See it work, end to end.',
+    sub: 'A guided walkthrough — every mode, every operation, explained by the person who built it.',
+    // Approximate upload date for VideoObject JSON-LD; update if needed.
+    uploadDate: '2026-04-25',
+  },
+
   // Top-of-page value props
   valueProps: [
     {

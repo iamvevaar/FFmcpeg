@@ -10,6 +10,9 @@ export function Nav() {
         </a>
 
         <nav className="hidden md:flex items-center gap-8 text-[15px] text-[var(--color-charcoal)]">
+          <a href="#watch" className="hover:text-[var(--color-meta-blue)] transition-colors">
+            Watch
+          </a>
           <a href="#capabilities" className="hover:text-[var(--color-meta-blue)] transition-colors">
             Features
           </a>
