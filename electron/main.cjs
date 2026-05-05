@@ -249,8 +249,9 @@ Return ONLY a valid JSON object (no markdown, no explanation) with this structur
   "operation": one of "convert" | "compress" | "extractAudio" | "trim" | "resize" | "transform" | "watermark" | "thumbnail",
   "description": "brief human-readable description of what will happen",
   "options": {
-    // for convert: { "outputFormat": "mp4" | "mkv" | "webm", "webOptimized": true }
-    //   webOptimized: MP4 only — -movflags +faststart. Omit or false = standard MP4. Ignored for mkv/webm.
+    // for convert: { "outputFormat": "mp4" | "mkv" | "webm" | "mov" | "m4v", "webOptimized": true }
+    //   webOptimized: MP4 / MOV / M4V only — -movflags +faststart. Omit or false = standard file. Ignored for mkv/webm.
+    //   "mov" / "m4v"     → QuickTime / iTunes containers; remuxed by stream copy from compatible inputs.
     //
     // for compress & resize (re-encode operations only):
     //   "outputFps": "source" | "23.976" | "24" | "25" | "29.97" | "30" | "50" | "60" | "120"
@@ -330,6 +331,8 @@ Convert hints:
 - "remux to mkv" / "put in Matroska"     → outputFormat=mkv
 - "as webm" / "to WebM"                 → outputFormat=webm
 - "mp4" / "convert to MP4"             → outputFormat=mp4 (omit webOptimized or true for -movflags +faststart)
+- "mov" / "convert to MOV" / "QuickTime" / "for Final Cut" → outputFormat=mov
+- "m4v" / "iTunes-compatible"           → outputFormat=m4v
 - "for YouTube" / "streaming" / "progressive" → outputFormat=mp4, webOptimized=true
 - "raw mp4" / "no fast start"          → outputFormat=mp4, webOptimized=false
 
@@ -348,7 +351,14 @@ Resize hints:
 - "shrink to half"                      → use Convert/Compress; resize requires explicit dims.`
             }]
           }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 500 }
+          generationConfig: {
+            temperature: 0.1,
+            // 500 is enough for happy paths but truncates on verbose
+            // descriptions, leaving an unterminated string mid-JSON.
+            maxOutputTokens: 1024,
+            // Make Gemini emit strict JSON instead of fenced markdown.
+            responseMimeType: 'application/json',
+          },
         })
       }
     );
@@ -356,15 +366,69 @@ Resize hints:
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
 
+    const finishReason = data.candidates?.[0]?.finishReason;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // Clean JSON from possible markdown code blocks
-    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(cleanText);
-    return parsed;
+    if (!text) {
+      throw new Error(`Empty response from model (finish: ${finishReason || 'unknown'})`);
+    }
+    return parseAiJson(text, finishReason);
   } catch (err) {
     throw new Error(`AI parsing failed: ${err.message}`);
   }
 });
+
+// Tolerant JSON extractor for Gemini output. Strips markdown fences if any
+// slipped through (some model versions ignore responseMimeType when wrapped
+// in safety guards), then locates the outermost balanced {...} block before
+// parsing — so trailing prose doesn't break us. Throws with a context-rich
+// message when parse still fails (e.g. truncation).
+function parseAiJson(text, finishReason) {
+  const stripped = String(text)
+    .replace(/```json\s*/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  const start = stripped.indexOf('{');
+  if (start === -1) {
+    throw new Error(`Model did not return JSON: ${stripped.slice(0, 120)}`);
+  }
+
+  // Walk the string to find the matching closing brace, respecting strings
+  // and escapes — a regex can't balance braces.
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let end = -1;
+  for (let i = start; i < stripped.length; i++) {
+    const ch = stripped[i];
+    if (escape) { escape = false; continue; }
+    if (inString) {
+      if (ch === '\\') escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+
+  if (end === -1) {
+    const hint = finishReason === 'MAX_TOKENS'
+      ? 'response was truncated (token limit) — try a shorter prompt'
+      : 'response is incomplete';
+    throw new Error(`${hint}: ${stripped.slice(0, 200)}…`);
+  }
+
+  const candidate = stripped.slice(start, end + 1);
+  try {
+    return JSON.parse(candidate);
+  } catch (e) {
+    throw new Error(`${e.message}. Got: ${candidate.slice(0, 200)}`);
+  }
+}
 
 // Extract a single frame at a given timestamp as a JPEG data URL
 // Used for YouTube-style timeline scrubbing previews.

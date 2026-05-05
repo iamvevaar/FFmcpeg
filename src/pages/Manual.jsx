@@ -17,7 +17,7 @@ const TABS = [
 ];
 
 /** HandBrake-style containers: MP4/MKV = fast remux; WebM = VP9 + Opus transcode. */
-const CONTAINERS = ['mp4', 'mkv', 'webm'];
+const CONTAINERS = ['mp4', 'mov', 'mkv', 'webm'];
 const AUDIO_FORMATS = ['mp3', 'aac', 'wav', 'flac', 'm4a', 'ogg'];
 
 function crfToPercent(crf) { return Math.round(100 - ((crf - 18) / (51 - 18)) * 100); }
@@ -347,8 +347,9 @@ export default function Manual() {
             return base;
         })();
 
-        const convertLabel = outputFormat === 'mp4' && webOptimized
-            ? 'Convert → MP4 (web-optimized)'
+        const convertSupportsFaststart = outputFormat === 'mp4' || outputFormat === 'mov';
+        const convertLabel = convertSupportsFaststart && webOptimized
+            ? `Convert → ${outputFormat.toUpperCase()} (web-optimized)`
             : `Convert → ${outputFormat.toUpperCase()}`;
 
         const transformLabel = (() => {
@@ -395,7 +396,7 @@ export default function Manual() {
         })();
 
         const opOptions = {
-            convert: { inputPath: file, outputFormat, webOptimized: outputFormat === 'mp4' ? webOptimized : false },
+            convert: { inputPath: file, outputFormat, webOptimized: convertSupportsFaststart ? webOptimized : false },
             compress: compressOptions,
             extractAudio: { inputPath: file, audioFormat },
             trim: { inputPath: file, startTime, endTime },
@@ -494,13 +495,14 @@ export default function Manual() {
                                                 <span className="codec-card-label">.{f}</span>
                                                 <span className="codec-card-sub">
                                                     {f === 'mp4' && 'Broadest compatibility'}
+                                                    {f === 'mov' && 'QuickTime · Final Cut'}
                                                     {f === 'mkv' && 'No re-encode · Matroska'}
                                                     {f === 'webm' && 'Web · VP9 + Opus'}
                                                 </span>
                                             </button>
                                         ))}
                                     </div>
-                                    {outputFormat === 'mp4' && (
+                                    {(outputFormat === 'mp4' || outputFormat === 'mov') && (
                                         <button
                                             type="button"
                                             className={`hw-toggle${webOptimized ? ' active' : ''}`}
