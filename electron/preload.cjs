@@ -1,11 +1,20 @@
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('ffmcp', {
   // File dialogs
   openFile: (filters) => ipcRenderer.invoke('dialog:openFile', filters),
   openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
+
+  // Resolve a renderer-side File (drag-drop / <input type="file">) to its
+  // absolute filesystem path. Electron 32 removed File.path; the supported
+  // replacement is webUtils.getPathForFile, which must be reached through
+  // preload because contextIsolation hides the electron module from renderers.
+  getPathForFile: (file) => {
+    try { return webUtils.getPathForFile(file) || ''; }
+    catch { return ''; }
+  },
 
   // FFmpeg operations
   runOperation: (jobId, operation, options) =>

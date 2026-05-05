@@ -2,6 +2,18 @@ import { useState, useRef } from 'react';
 import { Upload, FileVideo, X } from 'lucide-react';
 import './DropZone.css';
 
+// Resolve a browser File to its absolute path. Electron 32+ removed File.path,
+// so the renderer can no longer read it directly — fall through preload's
+// webUtils.getPathForFile bridge. Returns '' if the path can't be resolved
+// (e.g. running in a plain browser preview).
+function resolveFilePath(file) {
+    if (window.ffmcp?.getPathForFile) {
+        const p = window.ffmcp.getPathForFile(file);
+        if (p) return p;
+    }
+    return file.path || '';
+}
+
 export default function DropZone({ file, onFile, onClear, error, dropzoneRef }) {
     const [dragging, setDragging] = useState(false);
     const inputRef = useRef();
@@ -10,7 +22,9 @@ export default function DropZone({ file, onFile, onClear, error, dropzoneRef }) 
         e.preventDefault();
         setDragging(false);
         const f = e.dataTransfer.files[0];
-        if (f) onFile(f.path || f.name, f);
+        if (!f) return;
+        const p = resolveFilePath(f);
+        if (p) onFile(p, f);
     };
 
     const handleClick = async () => {
@@ -24,7 +38,9 @@ export default function DropZone({ file, onFile, onClear, error, dropzoneRef }) 
 
     const handleInputChange = (e) => {
         const f = e.target.files[0];
-        if (f) onFile(f.path || f.name, f);
+        if (!f) return;
+        const p = resolveFilePath(f);
+        if (p) onFile(p, f);
     };
 
     const ext = file ? file.split('.').pop().toUpperCase() : '';

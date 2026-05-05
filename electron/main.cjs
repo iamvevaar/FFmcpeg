@@ -132,12 +132,31 @@ app.on('window-all-closed', () => {
 // ─── IPC Handlers ─────────────────────────────────────────────────
 
 // Open file dialog
+// The default filter list mirrors what ffmpeg can demux out of the box and
+// includes an "All Files" fallback for unusual extensions (.r3d, .braw, raw
+// PCM, etc.) the user might still want to feed in.
+const DEFAULT_OPEN_FILTERS = [
+  {
+    name: 'Media Files',
+    extensions: [
+      // Video containers
+      'mp4', 'm4v', 'mov', 'qt', 'mkv', 'webm', 'avi', 'flv', 'f4v', 'wmv',
+      'mpg', 'mpeg', 'm2v', 'ts', 'm2ts', 'mts', '3gp', '3g2', 'ogv', 'ogg',
+      'vob', 'mxf', 'asf', 'rm', 'rmvb', 'divx', 'y4m', 'gif',
+      // Audio
+      'mp3', 'aac', 'm4a', 'wav', 'flac', 'oga', 'opus', 'wma', 'ac3', 'eac3',
+      'dts', 'amr', 'aiff', 'aif', 'mka', 'alac', 'ape', 'caf', 'au',
+    ],
+  },
+  { name: 'Video', extensions: ['mp4', 'm4v', 'mov', 'mkv', 'webm', 'avi', 'flv', 'wmv', 'mpg', 'mpeg', 'ts', 'm2ts', '3gp', 'ogv', 'mxf', 'gif'] },
+  { name: 'Audio', extensions: ['mp3', 'aac', 'm4a', 'wav', 'flac', 'opus', 'ogg', 'wma', 'ac3', 'aiff', 'mka'] },
+  { name: 'All Files', extensions: ['*'] },
+];
+
 ipcMain.handle('dialog:openFile', async (_, filters) => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
-    filters: filters || [
-      { name: 'Media Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'mp3', 'aac', 'wav', 'flac', 'm4a', 'ogg'] },
-    ],
+    filters: filters || DEFAULT_OPEN_FILTERS,
   });
   return result.filePaths[0] || null;
 });
