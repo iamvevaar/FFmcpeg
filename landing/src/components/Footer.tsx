@@ -10,7 +10,7 @@ export function Footer() {
             <div className="flex items-center gap-3">
               <Logo size={32} />
               <span className="text-white font-semibold text-[20px] tracking-tight">
-                FFmcp
+                FFmcpeg
               </span>
             </div>
             <p className="mt-4 text-[14px] leading-[1.6] text-white/60 max-w-xs">

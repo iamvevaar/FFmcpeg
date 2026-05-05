@@ -16,8 +16,8 @@ export const siteConfig = {
   ogImageAlt: 'FFmcpeg — pro-grade video encoding made for humans',
 
   // Bump these on every release.
-  version: '1.0.5',
-  releaseDate: '2026-04-25',
+  version: '1.0.6',
+  releaseDate: '2026-05-06',
   releaseName: 'Phase 1 — Foundation',
   license: 'Apache-2.0',
 
@@ -29,11 +29,11 @@ export const siteConfig = {
    * filenames here when they change — GitHub auto-redirects to the latest tag.
    */
   downloads: {
-    macAppleSilicon: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.4/FFmcp-1.0.5-arm64.dmg',
-    macIntel: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.4/FFmcp-1.0.5-arm64.dmg',
-    windows: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.4/FFmcp-Setup-1.0.5.exe',
-    linuxAppImage: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.4/FFmcp-1.0.5.AppImage',
-    linuxTarball: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.4/ffmcp-1.0.5.tar.gz',
+    macAppleSilicon: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.6/FFmcp-1.0.6-arm64.dmg',
+    macIntel: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.6/FFmcp-1.0.6-arm64.dmg',
+    windows: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.6/FFmcp-Setup-1.0.6.exe',
+    linuxAppImage: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.6/FFmcp-1.0.6.AppImage',
+    linuxTarball: 'https://github.com/iamvevaar/FFmcpeg/releases/download/v1.0.6/ffmcp-1.0.6.tar.gz',
   },
 
   links: {
@@ -58,7 +58,7 @@ export const siteConfig = {
 
   // Hero section
   hero: {
-    eyebrow: `v1.0.5 · ${new Date('2026-04-25').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
+    eyebrow: `v1.0.6 · ${new Date('2026-05-25').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
     headline: ['FFmpeg’s full power.', 'Without a single command.'],
     sub:
       'FFmcpeg is a free, open-source video encoder for Mac, Windows, and Linux. Type what you want in plain English — or dial in every codec, container, and bitrate. Zero terminal.',
